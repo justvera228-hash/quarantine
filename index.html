@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карантин. Больница.</title>
+    <style>
+        :root {
+            --bg: #05050e;
+            --surface: #141c24;
+            --text: #c8d4e0;
+            --accent: #00e5ff;
+            --danger: #ff2244;
+            --health: #ff4466;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #020208;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; width: 100vw; overflow: hidden;
+            font-family: 'Courier New', monospace; user-select: none; cursor: default;
+        }
+        #game-wrapper {
+            position: relative;
+            width: 100vmin; height: 56.25vmin; max-width: 960px; max-height: 540px;
+            border: 2px solid #1c2e3a; box-shadow: 0 0 60px rgba(0, 200, 255, 0.1);
+            background: #050510; image-rendering: pixelated;
+        }
+        canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+        
+        #ui-overlay {
+            position: absolute; top: 12px; left: 16px; right: 16px;
+            display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
+            font-family: 'Courier New', monospace; color: var(--text);
+            text-shadow: 0 0 8px rgba(0, 0, 0, 0.9); letter-spacing: 1px;
+        }
+        
+        .health-container {
+            background: rgba(8, 12, 20, 0.85); padding: 6px 10px;
+            border: 1px solid #2a4a5a; border-radius: 2px;
+            display: flex; align-items: center; gap: 8px;
+            box-shadow: inset 0 0 10px rgba(255, 68, 102, 0.1);
+        }
+        .heart-icon {
+            font-size: 18px; color: #ff4466;
+            text-shadow: 0 0 10px rgba(255, 68, 102, 0.8);
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+        .health-bar-bg {
+            width: 120px; height: 14px; border: 1px solid #4a2a3a;
+            background: #1a0a10; position: relative;
+        }
+        .health-bar-fill {
+            height: 100%; background: linear-gradient(90deg, #ff2244, #ff4466);
+            box-shadow: 0 0 10px rgba(255, 68, 102, 0.6);
+            transition: width 0.3s; width: 100%;
+        }
+        .health-text {
+            font-size: clamp(10px, 1.6vmin, 14px); color: #ff6688;
+            text-shadow: 0 0 8px rgba(255, 68, 102, 0.5);
+            min-width: 45px; text-align: center;
+        }
+        .boss-health-container {
+            background: rgba(8, 12, 20, 0.85); padding: 6px 10px;
+            border: 1px solid #2a4a5a; border-radius: 2px;
+            display: none; align-items: center; gap: 8px;
+            box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.15);
+        }
+        .boss-health-container.visible { display: flex; }
+        .boss-icon { font-size: 16px; color: #ff0044; text-shadow: 0 0 10px rgba(255, 0, 68, 0.8); animation: bossPulse 0.8s infinite; }
+        @keyframes bossPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+        .boss-health-bar-bg {
+            width: 120px; height: 14px; border: 1px solid #3a1a1a;
+            background: #0a0a0a; position: relative;
+        }
+        .boss-health-bar-fill {
+            height: 100%; background: linear-gradient(90deg, #880022, #cc0033);
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.6);
+            transition: width 0.3s; width: 100%;
+        }
+        .boss-health-text {
+            font-size: clamp(9px, 1.4vmin, 13px); color: #ff4466;
+            text-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+            min-width: 40px; text-align: center;
+        }
+        .boss-name-text {
+            font-size: clamp(8px, 1.2vmin, 11px); color: #ff6688;
+            text-shadow: 0 0 6px rgba(255, 0, 0, 0.4);
+            margin-right: 4px;
+        }
+        .status-text { font-size: clamp(10px, 1.6vmin, 15px); color: #8098a8; text-shadow: 0 0 5px rgba(0,0,0,0.8); }
+        .status-bar { background: rgba(8, 12, 20, 0.85); padding: 4px 8px; border: 1px solid #2a4a5a; border-radius: 2px; display: flex; align-items: center; gap: 6px; }
+        #ui-left-group { display: flex; gap: 10px; align-items: flex-start; }
+        #message-center {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            pointer-events: none; z-index: 20; font-family: 'Courier New', monospace;
+            font-size: clamp(14px, 2.5vmin, 22px); color: #e0f0ff;
+            text-shadow: 0 0 20px rgba(0, 200, 255, 0.8), 0 0 40px rgba(0, 0, 0, 0.9);
+            letter-spacing: 3px; text-align: center; opacity: 0; transition: opacity 0.4s;
+        }
+        #message-center.visible { opacity: 1; }
+        #controls-hint {
+            position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+            pointer-events: none; z-index: 10; font-family: 'Courier New', monospace;
+            font-size: clamp(8px, 1.2vmin, 11px); color: #4a5a6a; letter-spacing: 2px; text-align: center;
+            background: rgba(0, 0, 0, 0.7); padding: 3px 12px; border-radius: 2px;
+            border: 1px solid #1a2a3a; white-space: nowrap;
+        }
+        #interact-hint {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            pointer-events: none; z-index: 10; font-family: 'Courier New', monospace;
+            font-size: clamp(10px, 1.5vmin, 14px); color: #44eeff;
+            text-shadow: 0 0 10px rgba(0, 204, 255, 0.6); letter-spacing: 2px; text-align: center;
+            opacity: 0; transition: opacity 0.3s; background: rgba(0, 0, 0, 0.85);
+            padding: 4px 12px; border-radius: 2px; border: 1px solid #2a4a5a;
+        }
+        #interact-hint.visible { opacity: 1; }
+        #intro-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 30; background: rgba(5, 5, 16, 0.98);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-family: 'Courier New', monospace; color: #c0d0e0; text-align: center; padding: 20px;
+            transition: opacity 0.8s;
+        }
+        #intro-overlay.hidden { opacity: 0; pointer-events: none; }
+        #intro-overlay h1 { font-size: clamp(24px, 5vmin, 48px); color: #ff4466; margin-bottom: 10px; letter-spacing: 6px; text-shadow: 0 0 40px rgba(255, 68, 102, 0.3); }
+        #intro-overlay p { font-size: clamp(12px, 2vmin, 18px); max-width: 500px; line-height: 1.6; color: #6a8a9a; margin: 5px 0; }
+        #intro-overlay .subtitle { color: #2a4a5a; font-size: clamp(10px, 1.5vmin, 14px); margin-top: 15px; letter-spacing: 3px; }
+        #intro-overlay .start-btn {
+            margin-top: 20px; padding: 10px 30px; background: #0a1a22;
+            border: 2px solid #ff4466; color: #c0d0e0;
+            font-family: 'Courier New', monospace; font-size: clamp(14px, 2vmin, 18px);
+            cursor: pointer; transition: all 0.3s; letter-spacing: 2px;
+            box-shadow: 0 0 15px rgba(255, 68, 102, 0.1);
+        }
+        #intro-overlay .start-btn:hover { background: #1a0a10; border-color: #ff6688; box-shadow: 0 0 30px rgba(255, 68, 102, 0.4); }
+        @media (max-width: 600px) {
+            #game-wrapper { width: 100vw; height: 56.25vw; max-height: 100vh; border: 2px solid #1a2a3a; }
+            #controls-hint { font-size: 8px; padding: 2px 8px; white-space: normal; bottom: 4px; }
+            #interact-hint { bottom: 32px; font-size: 10px; padding: 2px 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-wrapper">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui-overlay">
+            <div id="ui-left-group">
+                <div class="health-container">
+                    <span class="heart-icon">❤️</span>
+                    <div class="health-bar-bg"><div class="health-bar-fill" id="healthBarFill"></div></div>
+                    <span class="health-text" id="healthText">100/100</span>
+                </div>
+                <div class="boss-health-container" id="bossHealthContainer">
+                    <span class="boss-icon">💀</span>
+                    <span class="boss-name-text" id="bossNameText">БОСС</span>
+                    <div class="boss-health-bar-bg"><div class="boss-health-bar-fill" id="bossHealthBarFill"></div></div>
+                    <span class="boss-health-text" id="bossHealthText">0/0</span>
+                </div>
+            </div>
+            <div class="status-bar"><span class="status-text" id="floorText">КАРАНТИН</span></div>
+        </div>
+        <div id="message-center"></div>
+        <div id="interact-hint">[E] ВЗАИМОДЕЙСТВИЕ</div>
+        <div id="controls-hint">← → / A D — ДВИЖЕНИЕ | ПРОБЕЛ / W — ПРЫЖОК | J / КЛИК — АТАКА | E — ВЗАИМОДЕЙСТВИЕ</div>
+        <div id="intro-overlay">
+            <h1>⛓ КАРАНТИН</h1>
+            <p>Вирус искажает реальность. Вы слышите голоса. За вами охотятся заражённые.</p>
+            <p>Доберитесь до 5-го этажа больницы, найдите дневники доктора и остановите кошмар.</p>
+            <p class="subtitle">ЭТАЖ 1: КОРИДОРЫ БОЛЬНИЦЫ</p>
+            <button class="start-btn" id="startBtn">▶ ОТКРЫТЬ ГЛАЗА</button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const floorText = document.getElementById('floorText');
+            const healthBarFill = document.getElementById('healthBarFill');
+            const healthText = document.getElementById('healthText');
+            const bossHealthContainer = document.getElementById('bossHealthContainer');
+            const bossHealthBarFill = document.getElementById('bossHealthBarFill');
+            const bossHealthText = document.getElementById('bossHealthText');
+            const bossNameText = document.getElementById('bossNameText');
+            const messageCenter = document.getElementById('message-center');
+            const interactHint = document.getElementById('interact-hint');
+            const introOverlay = document.getElementById('intro-overlay');
+            const startBtn = document.getElementById('startBtn');
+            const GAME_W = 960, GAME_H = 540;
+            canvas.width = GAME_W; canvas.height = GAME_H;
+
+            const STATE = {
+                floor: 1, maxFloor: 5, player: null, enemies: [], boss: null,
+                particles: [], interactables: [], platforms: [], chainPlatforms: [],
+                lights: [], lasers: [], windows: [], staircase: null,
+                cameraX: 0, cameraTargetX: 0, screenShake: 0, shakeX: 0, shakeY: 0,
+                messageTimer: 0, playerInvincible: 0, gameOver: false, victory: false,
+                diaryFoundThisFloor: false, bossDefeated: false,
+                keys: {}, mouseDown: false, lastTime: 0, dt: 0,
+                interactCooldown: 0, nearInteractable: null,
+                totalDiaryPages: 5, foundPages: 0, gameStarted: false,
+                collectedPages: new Set(), glitchTimer: 0, glitchIntensity: 0,
+                voiceTimer: 0, laserGlobalTimer: 0, pillsUsed: 0, lastSavedFloor: 1,
+                hasBow: false, bowFound: false, victoryShown: false,
+                bossDroppedLoot: false, bowGuard: null, bossHitCount: 0
+            };
+
+            function updateBossHealthBar() {
+                if (STATE.boss && STATE.boss.hp > 0) {
+                    bossHealthContainer.classList.add('visible');
+                    bossHealthBarFill.style.width = (STATE.boss.hp / STATE.boss.maxHp * 100) + '%';
+                    bossHealthText.textContent = Math.ceil(STATE.boss.hp) + '/' + STATE.boss.maxHp;
+                    bossNameText.textContent = STATE.boss.name;
+                } else { bossHealthContainer.classList.remove('visible'); }
+            }
+
+            function spawnExperienceOrbs(x, y, count) {
+                for (let i = 0; i < count; i++) {
+                    const angle = (Math.PI * 2 / count) * i;
+                    const speed = 50 + Math.random() * 100;
+                    STATE.particles.push({
+                        x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 100,
+                        life: 1.5, maxLife: 1.5, color: '#ffdd00', size: 3 + Math.random() * 2,
+                        isExpOrb: true, healAmount: 20
+                    });
+                }
+            }
+
+            function hasLineOfSight(x1, y1, x2, y2, targetW = 0, targetH = 0) {
+                const checkPoints = [{ x: x2, y: y2 }, { x: x2 + targetW, y: y2 }, { x: x2, y: y2 + targetH }, { x: x2 + targetW, y: y2 + targetH }, { x: x2 + targetW / 2, y: y2 + targetH / 2 }];
+                for (const point of checkPoints) {
+                    let blocked = false;
+                    for (const p of STATE.platforms) {
+                        if (p.type === 'ground') continue;
+                        if (lineIntersectsRect(x1, y1, point.x, point.y, p.x, p.y, p.w, p.h)) { blocked = true; break; }
+                    }
+                    if (!blocked) return true;
+                }
+                return false;
+            }
+            function lineIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
+                return lineIntersectsLine(x1,y1,x2,y2,rx,ry,rx,ry+rh) || lineIntersectsLine(x1,y1,x2,y2,rx+rw,ry,rx+rw,ry+rh) || lineIntersectsLine(x1,y1,x2,y2,rx,ry,rx+rw,ry) || lineIntersectsLine(x1,y1,x2,y2,rx,ry+rh,rx+rw,ry+rh);
+            }
+            function lineIntersectsLine(x1, y1, x2, y2, x3, y3, x4, y4) {
+                const denom = (y4-y3)*(x2-x1) - (x4-x3)*(y2-y1);
+                if (denom === 0) return false;
+                const ua = ((x4-x3)*(y1-y3) - (y4-y3)*(x1-x3)) / denom;
+                const ub = ((x2-x1)*(y1-y3) - (y2-y1)*(x1-x3)) / denom;
+                return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
+            }
+
+            function getFloorData(floorNum) {
+                const groundY = GAME_H - 50;
+                const baseEnemyCount = 3 + floorNum;
+                const data = {
+                    platforms: [{ x: 0, y: groundY, w: 2400, h: 50, type: 'ground' }],
+                    chainPlatforms: [], enemies: [], interactables: [], lights: [], lasers: [], windows: [],
+                    diaryX: 400 + floorNum * 150, diaryY: groundY - 140,
+                    staircaseX: 2250, staircaseY: groundY - 120,
+                };
+                for (let i = 0; i < 12; i++) data.windows.push({ x: 80 + i * 190, y: 0, w: 80, h: GAME_H - groundY });
+                for (let i = 0; i < 10; i++) data.lights.push({ x: 100 + i * 230, y: 20, radius: 200, intensity: 1.3 });
+
+                const platformSets = [
+                    { x: 150, y: groundY-70, w: 100, h: 14 }, { x: 300, y: groundY-110, w: 90, h: 14 },
+                    { x: 520, y: groundY-80, w: 110, h: 14 }, { x: 680, y: groundY-120, w: 85, h: 14 },
+                    { x: 750, y: groundY-60, w: 95, h: 14 }, { x: 920, y: groundY-100, w: 100, h: 14 },
+                    { x: 1050, y: groundY-140, w: 80, h: 14 }, { x: 1100, y: groundY-70, w: 110, h: 14 },
+                    { x: 1320, y: groundY-90, w: 100, h: 14 }, { x: 1450, y: groundY-130, w: 85, h: 14 },
+                    { x: 1500, y: groundY-65, w: 95, h: 14 }, { x: 1720, y: groundY-110, w: 105, h: 14 },
+                    { x: 1850, y: groundY-75, w: 90, h: 14 }, { x: 1950, y: groundY-120, w: 100, h: 14 },
+                ];
+                platformSets.forEach(p => data.platforms.push({ ...p, type: p.type || 'shelf' }));
+                const chainSets = [
+                    { x: 200, y: groundY-160, w: 70, h: 14 }, { x: 600, y: groundY-180, w: 75, h: 14 },
+                    { x: 1000, y: groundY-200, w: 65, h: 14 }, { x: 1400, y: groundY-170, w: 80, h: 14 },
+                    { x: 1800, y: groundY-190, w: 70, h: 14 },
+                ];
+                data.chainPlatforms = chainSets;
+                const walls = [
+                    { x: 250, y: groundY-60, w: 25, h: 60 }, { x: 550, y: groundY-70, w: 22, h: 70 },
+                    { x: 850, y: groundY-55, w: 28, h: 55 }, { x: 1150, y: groundY-75, w: 20, h: 75 },
+                    { x: 1550, y: groundY-65, w: 24, h: 65 }, { x: 1900, y: groundY-70, w: 26, h: 70 },
+                ];
+                walls.forEach(w => data.platforms.push({ x: w.x, y: w.y, w: w.w, h: w.h, type: 'wall' }));
+                const laserCount = 4 + floorNum;
+                for (let i = 0; i < laserCount; i++) data.lasers.push({ x: 150 + i * (2100 / laserCount), y: 20, h: GAME_H - 100, active: true });
+                const pillPositions = [{ x: 250, y: groundY-40 }, { x: 750, y: groundY-40 }, { x: 1250, y: groundY-40 }, { x: 1750, y: groundY-40 }];
+                pillPositions.forEach((pp, i) => data.interactables.push({ ...pp, w: 12, h: 12, type: 'pill', label: '💊', text: 'ТАБЛЕТКИ (+25 HP)', healAmount: 25, id: `pill_${floorNum}_${i}`, collected: false }));
+                const doorPositions = [
+                    { x: 350, y: groundY-60, label: 'ПАЛАТА A' }, { x: 750, y: groundY-60, label: 'ПАЛАТА B' },
+                    { x: 1200, y: groundY-60, label: 'ЛАБОРАТОРИЯ' }, { x: 1600, y: groundY-60, label: 'МОРГ' },
+                ];
+                doorPositions.forEach(d => data.interactables.push({ x: d.x, y: d.y, w: 30, h: 60, type: 'door_interact', label: d.label, text: `ОТКРЫТЬ ${d.label}`, opened: false, id: `door_${floorNum}_${d.label}` }));
+                data.interactables.push({ x: 500, y: groundY-75, w: 30, h: 20, type: 'terminal', label: 'TERM', text: 'ДАННЫЕ ПАЦИЕНТОВ ЗАШИФРОВАНЫ', id: 'terminal_1' });
+                
+                if (floorNum === 5 && !STATE.bowFound) {
+                    data.interactables.push({ x: 1950, y: groundY-40, w: 20, h: 12, type: 'bow', label: '🏹', text: 'ЛУК ДАЛЬНЕГО ДЕЙСТВИЯ! Урон x3!', id: 'bow_item', collected: false });
+                    data.enemies.push({ x: 1920, y: groundY-60, hp: 8, speed: 90, patrolL: 1880, patrolR: 1980, platformRef: { x: 0, y: groundY, w: 2400, h: 50 }, isGrounded: true, isGuard: true });
+                }
+
+                const diaryTexts = ['Дневник: "День 1. Пациент ноль. Кашель. Синий туман."', 'Дневник: "Реальность искажается. Кровь на стенах."', 'Дневник: "Санитар стал монстром. Я заперся."', 'Дневник: "Вирус реагирует на звук. Не бегите."', 'Дневник: "Главврач — это я. Остановите меня."'];
+                if (floorNum <= STATE.totalDiaryPages && !STATE.collectedPages.has(floorNum)) {
+                    data.interactables.push({ x: data.diaryX, y: data.diaryY, w: 16, h: 16, type: 'diary', label: `СТР.${floorNum}`, text: diaryTexts[floorNum-1], id: `diary_${floorNum}`, collected: false });
+                }
+                for (let i = 0; i < baseEnemyCount; i++) {
+                    let ex, ey, platformRef;
+                    if (i % 3 === 0) { ex = 200 + i * 300 + Math.random() * 150; ey = groundY - 60; platformRef = { x: 0, y: groundY, w: 2400, h: 50 }; }
+                    else if (i % 3 === 1) { const p = platformSets[Math.floor(Math.random() * platformSets.length)]; ex = p.x + p.w/2; ey = p.y - 32; platformRef = p; }
+                    else { const c = chainSets[Math.floor(Math.random() * chainSets.length)]; ex = c.x + c.w/2; ey = c.y - 32; platformRef = c; }
+                    data.enemies.push({ x: ex, y: ey, hp: 4+floorNum, speed: 70+floorNum*12, patrolL: Math.max(platformRef.x+10, ex-80), patrolR: Math.min(platformRef.x+platformRef.w-10, ex+80), platformRef, isGrounded: i%3===0, isGuard: false });
+                }
+                return data;
+            }
+
+            class Player {
+                constructor(x, y) {
+                    this.x = x; this.y = y; this.w = 20; this.h = 30;
+                    this.vx = 0; this.vy = 0; this.speed = 200; this.jumpForce = -400;
+                    this.gravity = 850; this.onGround = false; this.facingRight = true;
+                    this.health = 100; this.maxHealth = 100;
+                    this.attacking = false; this.attackTimer = 0; this.attackDuration = 0.2;
+                    this.attackCooldownTime = 0.3; this.attackCdTimer = 0;
+                    this.attackRange = 35; this.attackDamage = 1;
+                    this.hitFlash = 0; this.jumpKeyPressed = false;
+                }
+                update(dt) {
+                    if (this.attackCdTimer > 0) this.attackCdTimer -= dt;
+                    if (this.attackTimer > 0) { this.attackTimer -= dt; if (this.attackTimer <= 0) this.attacking = false; }
+                    if (this.hitFlash > 0) this.hitFlash -= dt;
+                    if (STATE.playerInvincible > 0) STATE.playerInvincible -= dt;
+                    const moveDir = (STATE.keys['ArrowLeft']||STATE.keys['KeyA'] ? -1 : 0) + (STATE.keys['ArrowRight']||STATE.keys['KeyD'] ? 1 : 0);
+                    this.vx = Math.max(-1, Math.min(1, moveDir)) * this.speed;
+                    if (moveDir !== 0) this.facingRight = moveDir > 0;
+                    const jumpKey = STATE.keys['Space'] || STATE.keys['KeyW'] || STATE.keys['ArrowUp'];
+                    if (jumpKey && this.onGround && !this.jumpKeyPressed) { this.vy = this.jumpForce; this.onGround = false; this.jumpKeyPressed = true; }
+                    if (!jumpKey) this.jumpKeyPressed = false;
+                    this.vy += this.gravity * dt; this.x += this.vx * dt; this.y += this.vy * dt; this.onGround = false;
+                    const allPlatforms = [...STATE.platforms, ...STATE.chainPlatforms];
+                    for (const p of allPlatforms) {
+                        if (this.x+this.w > p.x && this.x < p.x+p.w && this.y+this.h > p.y && this.y < p.y+p.h) {
+                            const ol=this.x+this.w-p.x, or=p.x+p.w-this.x, ot=this.y+this.h-p.y, ob=p.y+p.h-this.y;
+                            if (Math.min(ol,or) < Math.min(ot,ob)) { if (ol < or) this.x = p.x-this.w; else this.x = p.x+p.w; this.vx = 0; }
+                            else { if (ot < ob) { this.y = p.y-this.h; this.vy = 0; this.onGround = true; } else if (this.vy < 0) { this.y = p.y+p.h; this.vy = 0; } }
+                        }
+                    }
+                    this.x = Math.max(10, Math.min(2370, this.x));
+                    if (this.y > GAME_H + 100) { this.health = 0; this.die(); }
+                    if ((STATE.keys['KeyJ'] || STATE.mouseDown) && this.attackCdTimer <= 0 && !this.attacking) this.attack();
+                    if (this.attacking) this.checkAttackHit();
+                    if (STATE.interactCooldown > 0) STATE.interactCooldown -= dt;
+                    if (STATE.keys['KeyE'] && STATE.interactCooldown <= 0) { STATE.interactCooldown = 0.5; this.interact(); }
+                    this.checkNearInteractables();
+                    if (this.health > 0) for (const laser of STATE.lasers) { if (!laser.active) continue; if (this.x+this.w > laser.x+2 && this.x < laser.x+6 && this.y+this.h > laser.y && this.y < laser.y+laser.h) this.takeDamage(15); }
+                }
+                attack() {
+                    this.attacking = true; this.attackTimer = this.attackDuration; this.attackCdTimer = this.attackCooldownTime;
+                    if (STATE.hasBow) { this.attackRange = 150; this.attackDamage = 3; }
+                    for (let i = 0; i < (STATE.hasBow ? 3 : 6); i++) {
+                        spawnParticle((this.facingRight ? this.x+this.w : this.x), this.y+this.h/2-8+Math.random()*16, {
+                            vx: (this.facingRight?1:-1)*(STATE.hasBow?300:60+Math.random()*120), vy: STATE.hasBow?0:-30+Math.random()*60,
+                            life: STATE.hasBow?0.4:0.2, color: STATE.hasBow ? '#ffaa00' : '#66eeff', size: STATE.hasBow ? 6 : 2+Math.random()*3,
+                        });
+                    }
+                }
+                checkAttackHit() {
+                    const range = STATE.hasBow ? 150 : 35;
+                    const attackX = this.facingRight ? this.x+this.w : this.x-range;
+                    const attackY = this.y; const attackW = range; const attackH = this.h;
+                    const acx = this.x+this.w/2, acy = this.y+this.h/2;
+                    for (const enemy of STATE.enemies) {
+                        if (enemy.hp <= 0) continue;
+                        if (attackX < enemy.x+enemy.w && attackX+attackW > enemy.x && attackY < enemy.y+enemy.h && attackY+attackH > enemy.y) {
+                            if (hasLineOfSight(acx, acy, enemy.x+enemy.w/2, enemy.y+enemy.h/2, enemy.w, enemy.h)) {
+                                enemy.takeDamage(STATE.hasBow ? 3 : 1);
+                                STATE.screenShake = Math.max(STATE.screenShake, STATE.hasBow ? 8 : 4);
+                            }
+                        }
+                    }
+                    if (STATE.boss && STATE.boss.hp > 0) {
+                        const b = STATE.boss;
+                        if (attackX < b.x+b.w && attackX+attackW > b.x && attackY < b.y+b.h && attackY+attackH > b.y) {
+                            if (hasLineOfSight(acx, acy, b.x+b.w/2, b.y+b.h/2, b.w, b.h)) {
+                                const dmg = STATE.hasBow ? 3 : 1;
+                                b.takeDamage(dmg);
+                                STATE.bossHitCount++;
+                                if (STATE.bossHitCount % 2 === 0 && STATE.floor >= 4) {
+                                    spawnExperienceOrbs(b.x+b.w/2, b.y+b.h/2, 1);
+                                    showMessage('💛 +20 опыта', 1.5);
+                                }
+                                STATE.screenShake = Math.max(STATE.screenShake, STATE.hasBow ? 12 : 8);
+                                updateBossHealthBar();
+                            }
+                        }
+                    }
+                }
+                interact() {
+                    if (!STATE.nearInteractable) return;
+                    const item = STATE.nearInteractable;
+                    if (item.type === 'pill' && !item.collected) {
+                        item.collected = true; this.health = Math.min(this.maxHealth, this.health + item.healAmount);
+                        STATE.pillsUsed++; showMessage(`💊 +${item.healAmount} HP!`, 2);
+                        updateHealthBar(); STATE.interactables.splice(STATE.interactables.indexOf(item), 1);
+                    } else if (item.type === 'door_interact' && !item.opened) {
+                        item.opened = true; showMessage('🚪 ' + item.text, 2); item.w = 0; item.h = 0;
+                    } else if (item.type === 'bow' && !item.collected) {
+                        item.collected = true; STATE.hasBow = true; STATE.bowFound = true;
+                        showMessage('🏹 ' + item.text, 3);
+                        STATE.interactables.splice(STATE.interactables.indexOf(item), 1);
+                    } else if (item.type === 'diary' && !item.collected) {
+                        item.collected = true; STATE.collectedPages.add(STATE.floor); STATE.foundPages++;
+                        STATE.lastSavedFloor = STATE.floor;
+                        showMessage('📄 ' + item.text + '\n\n💾 Сохранение...', 4);
+                        this.health = Math.min(this.maxHealth, this.health + 30);
+                        STATE.glitchTimer = 1.0; STATE.glitchIntensity = 0.8;
+                        STATE.diaryFoundThisFloor = true; updateHealthBar();
+                        STATE.interactables.splice(STATE.interactables.indexOf(item), 1);
+                    } else if (item.type === 'terminal') { showMessage('💻 ' + item.text, 2.5); }
+                }
+                checkNearInteractables() {
+                    STATE.nearInteractable = null;
+                    for (const item of STATE.interactables) {
+                        if (item.collected || (item.type==='door_interact' && item.opened)) continue;
+                        if (this.x+this.w > item.x-10 && this.x < item.x+(item.w||30)+10 && this.y+this.h > item.y-10 && this.y < item.y+(item.h||60)+10) { STATE.nearInteractable = item; break; }
+                    }
+                    interactHint.classList.toggle('visible', STATE.nearInteractable !== null);
+                }
+                takeDamage(amount) {
+                    if (STATE.playerInvincible > 0) return;
+                    this.health -= amount; this.hitFlash = 0.2; STATE.playerInvincible = 0.5;
+                    STATE.screenShake = Math.max(STATE.screenShake, 8); updateHealthBar();
+                    if (this.health <= 0) { this.health = 0; this.die(); }
+                }
+                die() { STATE.gameOver = true; updateHealthBar(); }
+                draw(ctx, camX) {
+                    const sx = this.x - camX, sy = this.y;
+                    ctx.save(); ctx.imageSmoothingEnabled = false;
+                    if (this.hitFlash > 0 && Math.floor(this.hitFlash*20)%2===0) ctx.globalAlpha = 0.5;
+                    if (STATE.playerInvincible > 0 && Math.floor(STATE.playerInvincible*15)%2===0) ctx.globalAlpha = 0.4;
+                    ctx.fillStyle = '#f4e8e0'; ctx.fillRect(sx+5, sy+5, 10, 12);
+                    ctx.fillStyle = '#33aaff'; ctx.fillRect(sx+3, sy+2, 14, 3); ctx.fillRect(sx+4, sy, 12, 3);
+                    ctx.fillRect(sx-4, sy+6, 8, 12); ctx.fillRect(sx+16, sy+6, 8, 12);
+                    ctx.fillStyle = '#222'; ctx.fillRect(sx+6, sy+8, 3, 4); ctx.fillRect(sx+11, sy+8, 3, 4);
+                    ctx.fillStyle = '#b08a80'; ctx.fillRect(sx+8, sy+14, 4, 1);
+                    ctx.fillStyle = '#2a2a2a'; ctx.fillRect(sx+4, sy+19, 12, 7);
+                    ctx.fillStyle = '#e8d8d0'; ctx.fillRect(sx+1, sy+20, 4, 4); ctx.fillRect(sx+15, sy+20, 4, 4);
+                    ctx.fillStyle = '#7a4a4a'; ctx.fillRect(sx+5, sy+25, 4, 5); ctx.fillRect(sx+11, sy+25, 4, 5);
+                    ctx.fillStyle = '#222'; ctx.fillRect(sx+4, sy+28, 6, 2); ctx.fillRect(sx+10, sy+28, 6, 2);
+                    if (STATE.hasBow) { ctx.fillStyle = '#ffaa00'; ctx.fillRect(sx-2, sy-10, 24, 6); ctx.fillStyle = '#ff6600'; ctx.fillRect(sx+8, sy-12, 4, 4); }
+                    ctx.restore();
+                }
+            }
+
+            class InfectedZombie {
+                constructor(x, y, hp, speed, patrolL, patrolR, platformRef, isGrounded, isGuard = false) {
+                    this.x = x; this.y = y; this.w = 28; this.h = 32;
+                    this.hp = hp; this.maxHp = hp; this.speed = speed;
+                    this.patrolL = patrolL; this.patrolR = patrolR;
+                    this.platformRef = platformRef; this.isGrounded = isGrounded;
+                    this.isGuard = isGuard;
+                    this.dir = 1; this.hitFlash = 0; this.dead = false; this.deathTimer = 0;
+                    this.state = 'patrol'; this.alertTimer = 0;
+                    this.vx = 0; this.vy = 0; this.gravity = 850; this.onGround = false;
+                    this.baseY = y;
+                }
+                update(dt) {
+                    if (this.dead) { this.deathTimer -= dt; return; }
+                    if (this.hitFlash > 0) this.hitFlash -= dt;
+                    const player = STATE.player;
+                    if (!player || player.health <= 0) { this.vx = this.speed*this.dir; this.applyPhysics(dt); return; }
+                    const distToPlayer = Math.hypot(this.x-player.x, this.y-player.y);
+                    const noiseRadius = this.isGuard ? 200 : (Math.abs(player.vx)>20 ? 300 : 100);
+                    const canSee = Math.abs(this.y-player.y) < 200 && hasLineOfSight(this.x+this.w/2, this.y+this.h/2, player.x+player.w/2, player.y+player.h/2, player.w, player.h);
+                    if (distToPlayer < noiseRadius && canSee) { this.state = 'chase'; this.alertTimer = 1.5; }
+                    else if (this.alertTimer <= 0) this.state = 'patrol';
+                    else this.alertTimer -= dt;
+                    this.vx = this.state==='chase' ? this.speed*(this.isGuard?2:1.6)*(player.x>this.x?1:-1) : this.speed*this.dir;
+                    if (this.x <= this.patrolL) this.dir = 1;
+                    if (this.x >= this.patrolR) this.dir = -1;
+                    this.applyPhysics(dt);
+                }
+                applyPhysics(dt) {
+                    if (this.isGrounded) this.vy += this.gravity * dt;
+                    this.x += this.vx * dt;
+                    if (this.platformRef) this.x = Math.max(this.platformRef.x+5, Math.min(this.platformRef.x+this.platformRef.w-this.w-5, this.x));
+                    else this.x = Math.max(10, Math.min(2370, this.x));
+                    const allPlatforms = [...STATE.platforms, ...STATE.chainPlatforms];
+                    for (const p of allPlatforms) {
+                        if (this.x+this.w>p.x && this.x<p.x+p.w && this.y+this.h>p.y+5 && this.y<p.y+p.h) {
+                            if (this.vx > 0) this.x = p.x-this.w; else if (this.vx < 0) this.x = p.x+p.w;
+                            this.vx = 0; this.dir *= -1;
+                        }
+                    }
+                    if (this.isGrounded) {
+                        this.y += this.vy * dt; this.onGround = false;
+                        for (const p of allPlatforms) {
+                            if (this.x+this.w>p.x && this.x<p.x+p.w && this.y+this.h>p.y && this.y<p.y+p.h) {
+                                if (this.vy > 0) { this.y = p.y-this.h; this.vy = 0; this.onGround = true; }
+                                else if (this.vy < 0) { this.y = p.y+p.h; this.vy = 0; }
+                            }
+                        }
+                        if (this.y > GAME_H+100) { this.dead = true; this.deathTimer = 0.3; }
+                    } else { this.y = this.baseY; this.vy = 0; this.onGround = true; }
+                }
+                takeDamage(amount) { this.hp -= amount; this.hitFlash = 0.2; if (this.hp <= 0) { this.dead = true; this.deathTimer = 0.5; } }
+                draw(ctx, camX) {
+                    if (this.dead && this.deathTimer <= 0) return;
+                    const sx = this.x-camX, sy = this.y;
+                    ctx.save(); if (this.hitFlash > 0) ctx.globalAlpha = 0.5;
+                    ctx.fillStyle = this.isGuard ? '#5a3a3a' : '#3a4848';
+                    ctx.fillRect(sx+3, sy+2, this.w-6, this.h-4);
+                    ctx.fillStyle = this.isGuard ? '#4a2a2a' : '#2a3338';
+                    ctx.fillRect(sx+5, sy+4, this.w-10, this.h-8);
+                    ctx.fillStyle = '#ff0044'; ctx.shadowColor = '#ff0044'; ctx.shadowBlur = 10;
+                    ctx.fillRect(sx+5, sy+8, 4, 4); ctx.fillRect(sx+this.w-9, sy+8, 4, 4);
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = '#1a2228'; ctx.fillRect(sx+8, sy+16, this.w-16, 4);
+                    if (this.isGuard) { ctx.fillStyle = '#ffaa00'; ctx.font = '8px "Courier New"'; ctx.textAlign = 'center'; ctx.fillText('👁', sx+this.w/2, sy-5); }
+                    ctx.restore();
+                }
+            }
+
+            class Boss {
+                constructor(x, y, floor, name) {
+                    this.x = x; this.y = y;
+                    const sizeMult = floor >= 5 ? 1.6 : floor >= 4 ? 1.4 : floor >= 3 ? 1.2 : 1;
+                    this.w = 44 * sizeMult; this.h = 52 * sizeMult;
+                    const hpMult = floor === 5 ? 5 : floor === 4 ? 3 : floor === 3 ? 2 : 1;
+                    this.hp = (8 + floor * 6) * hpMult; this.maxHp = this.hp;
+                    this.hitFlash = 0; this.dead = false; this.deathTimer = 0;
+                    this.shootTimer = 0; this.floor = floor; this.name = name;
+                    this.colors = ['#5a3a3a', '#3a4a5a', '#3d2a2a', '#2a3a3a', '#1a3a4a'];
+                    this.vx = 50; this.dir = 1; this.patrolL = 2000; this.patrolR = 2300;
+                    this.speed = 80 + floor * 10;
+                    this.attackRange = floor >= 5 ? 200 : 300;
+                    this.lootDropped = false;
+                }
+                update(dt) {
+                    if (this.dead) {
+                        this.deathTimer -= dt;
+                        if (this.deathTimer <= 0 && !STATE.bossDefeated) {
+                            STATE.bossDefeated = true;
+                            if ((this.floor === 4 || this.floor === 5) && !this.lootDropped) {
+                                this.lootDropped = true; STATE.bossDroppedLoot = true;
+                                const orbCount = this.floor === 5 ? 10 : 6;
+                                spawnExperienceOrbs(this.x + this.w/2, this.y + this.h/2, orbCount);
+                                showMessage(`✨ БОСС ПОВЕРЖЕН!\n💛 +${orbCount * 20} опыта`, 3);
+                            }
+                            updateBossHealthBar();
+                            if (this.floor === 5) STATE.victory = true;
+                        }
+                        return;
+                    }
+                    if (this.hitFlash > 0) this.hitFlash -= dt;
+                    const player = STATE.player;
+                    if (player && player.health > 0) {
+                        const distToPlayer = Math.abs(this.x - player.x);
+                        if (distToPlayer < this.attackRange && Math.abs(this.y - player.y) < 150) {
+                            this.dir = player.x > this.x ? 1 : -1; this.vx = this.speed * 1.3 * this.dir;
+                        } else { this.vx = this.speed * this.dir; if (this.x <= this.patrolL) this.dir = 1; if (this.x >= this.patrolR) this.dir = -1; }
+                        this.x += this.vx * dt; this.x = Math.max(this.patrolL, Math.min(this.patrolR, this.x));
+                    }
+                    if (this.shootTimer > 0) this.shootTimer -= dt;
+                    else {
+                        this.shootTimer = 0.8;
+                        const bulletCount = this.floor >= 5 ? 8 : 5;
+                        for (let i = 0; i < bulletCount; i++) {
+                            const angle = Math.PI*2 / bulletCount * i + Math.random()*0.3;
+                            spawnParticle(this.x+this.w/2, this.y+this.h/2, { vx: Math.cos(angle)*140, vy: Math.sin(angle)*140, life: 0.8, color: this.floor%2===0?'#ff3366':'#33ff66', size: 5, damagePlayer: true, damage: 8+this.floor });
+                        }
+                    }
+                }
+                takeDamage(amount) { this.hp -= amount; this.hitFlash = 0.2; updateBossHealthBar(); if (this.hp <= 0) { this.dead = true; this.deathTimer = 0.3; } }
+                draw(ctx, camX) {
+                    if (this.dead && this.deathTimer <= 0) return;
+                    const sx = this.x-camX, sy = this.y;
+                    ctx.save(); if (this.hitFlash > 0) ctx.globalAlpha = 0.5; if (this.dead) ctx.globalAlpha = 0.5;
+                    ctx.fillStyle = this.colors[this.floor-1]; ctx.shadowColor = '#ff0044'; ctx.shadowBlur = 20;
+                    ctx.fillRect(sx+4, sy+4, this.w-8, this.h-8); ctx.shadowBlur = 0;
+                    ctx.fillStyle = '#3a3a3a'; ctx.fillRect(sx+6, sy+6, this.w-12, this.h-12);
+                    ctx.fillStyle = '#cc2244'; ctx.fillRect(sx+this.w/2-8, sy+this.h/2-8, 16, 16);
+                    ctx.fillStyle = '#fff'; ctx.font = `${Math.floor(this.w/5)}px Courier New`; ctx.textAlign = 'center';
+                    ctx.fillText(this.name, sx+this.w/2, sy-10);
+                    ctx.fillText(Math.ceil(this.hp)+'/'+this.maxHp, sx+this.w/2, sy-2);
+                    ctx.restore();
+                }
+            }
+
+            function spawnParticle(x, y, opts) {
+                STATE.particles.push({ x, y, vx: opts.vx||0, vy: opts.vy||0, life: opts.life||0.5, maxLife: opts.life||0.5, color: opts.color||'#fff', size: opts.size||2, damagePlayer: opts.damagePlayer||false, damage: opts.damage||0, isExpOrb: opts.isExpOrb||false, healAmount: opts.healAmount||0 });
+            }
+            function updateParticles(dt) {
+                for (let i = STATE.particles.length-1; i >= 0; i--) {
+                    const p = STATE.particles[i]; p.life -= dt;
+                    if (p.life <= 0) { STATE.particles.splice(i,1); continue; }
+                    p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 280*dt;
+                    if (p.isExpOrb && STATE.player && STATE.player.health > 0 && STATE.player.health < STATE.player.maxHealth) {
+                        const dx = (STATE.player.x+STATE.player.w/2)-p.x, dy = (STATE.player.y+STATE.player.h/2)-p.y, dist = Math.hypot(dx, dy);
+                        if (dist < 30) {
+                            STATE.player.health = Math.min(STATE.player.maxHealth, STATE.player.health + p.healAmount);
+                            updateHealthBar(); p.life = 0;
+                            for (let j=0;j<3;j++) STATE.particles.push({ x:p.x, y:p.y, vx:(Math.random()-0.5)*40, vy:-20-Math.random()*30, life:0.3, maxLife:0.3, color:'#ffff88', size:2 });
+                        } else if (dist < 80) { p.vx += (dx/dist)*200*dt; p.vy += (dy/dist)*200*dt; }
+                    }
+                    if (p.damagePlayer && STATE.player && STATE.player.health > 0 && p.x > STATE.player.x && p.x < STATE.player.x+STATE.player.w && p.y > STATE.player.y && p.y < STATE.player.y+STATE.player.h) { STATE.player.takeDamage(p.damage); p.life = 0; }
+                }
+            }
+            function loadFloor(floorNum) {
+                const data = getFloorData(floorNum);
+                STATE.floor = floorNum; STATE.platforms = data.platforms;
+                STATE.chainPlatforms = data.chainPlatforms || []; STATE.enemies = [];
+                STATE.boss = null; STATE.particles = [];
+                STATE.interactables = data.interactables || [];
+                STATE.lights = data.lights || []; STATE.lasers = data.lasers || [];
+                STATE.windows = data.windows || [];
+                STATE.diaryFoundThisFloor = false; STATE.bossDefeated = false;
+                STATE.bossDroppedLoot = false; STATE.bossHitCount = 0;
+                STATE.staircase = { x: data.staircaseX, y: data.staircaseY };
+                data.enemies.forEach(ed => STATE.enemies.push(new InfectedZombie(ed.x, ed.y, ed.hp, ed.speed, ed.patrolL, ed.patrolR, ed.platformRef, ed.isGrounded, ed.isGuard)));
+                const bossNames = ['Санитар', 'Медсестра', 'Инфекционист', 'Хирург', 'Главврач'];
+                if (floorNum <= 5) STATE.boss = new Boss(2100, GAME_H-120, floorNum, bossNames[floorNum-1]);
+                if (!STATE.player) STATE.player = new Player(100, GAME_H-100);
+                else { STATE.player.x = 100; STATE.player.y = GAME_H-100; STATE.player.health = STATE.player.maxHealth; STATE.player.vx = 0; STATE.player.vy = 0; STATE.player.attackRange = 35; STATE.player.attackDamage = 1; }
+                STATE.cameraX = 0; STATE.cameraTargetX = 0; STATE.gameOver = false; STATE.victory = false;
+                STATE.laserGlobalTimer = 0;
+                floorText.textContent = `ЭТАЖ ${STATE.floor}`;
+                updateHealthBar(); updateBossHealthBar(); hideMessage();
+                if (floorNum === 1 && !STATE.walkInComplete) { STATE.walkInComplete = true; showMessage('🏥 ВЫ ПРОСНУЛИСЬ В БОЛЬНИЦЕ', 3); }
+            }
+            function updateHealthBar() {
+                if (!STATE.player) return;
+                const ratio = STATE.player.health / STATE.player.maxHealth;
+                healthBarFill.style.width = (ratio*100)+'%';
+                healthText.textContent = Math.floor(STATE.player.health)+'/'+STATE.player.maxHealth;
+                healthBarFill.style.background = ratio < 0.3 ? 'linear-gradient(90deg, #ff0022, #ff2244)' : ratio < 0.6 ? 'linear-gradient(90deg, #ff4422, #ff6644)' : 'linear-gradient(90deg, #ff2244, #ff4466)';
+            }
+            function showMessage(text, duration=2.5) { STATE.messageTimer = duration; messageCenter.innerHTML = text.replace(/\n/g, '<br>'); messageCenter.classList.add('visible'); }
+            function hideMessage() { messageCenter.classList.remove('visible'); STATE.messageTimer = 0; }
+
+            function getFloorColors(floor) {
+                if (floor <= 2) return { bg1: '#0a0a14', bg2: '#0e121c', bg3: '#121a22', win1: '#111a22', win2: 'rgba(40,60,90,0.15)' };
+                if (floor <= 4) return { bg1: '#0f0a14', bg2: '#120e1a', bg3: '#150f1c', win1: '#1a1122', win2: 'rgba(60,30,90,0.2)' };
+                return { bg1: '#140a0a', bg2: '#1c0e0e', bg3: '#1a0f0f', win1: '#221111', win2: 'rgba(90,20,20,0.25)' };
+            }
+
+            function drawBackground(ctx) {
+                const colors = getFloorColors(STATE.floor);
+                const grad = ctx.createLinearGradient(0,0,0,GAME_H);
+                grad.addColorStop(0,colors.bg1); grad.addColorStop(0.5,colors.bg2); grad.addColorStop(1,colors.bg3);
+                ctx.fillStyle = grad; ctx.fillRect(0,0,GAME_W,GAME_H);
+            }
+            function drawWindows(ctx, camX) {
+                if (!STATE.windows) return;
+                const colors = getFloorColors(STATE.floor);
+                STATE.windows.forEach(w => {
+                    const sx = w.x-camX; if (sx<-100||sx>GAME_W+100) return;
+                    ctx.fillStyle=colors.win1; ctx.fillRect(sx,w.y,w.w,w.h);
+                    ctx.fillStyle=colors.win2; ctx.fillRect(sx+4,w.y+4,w.w-8,w.h-8);
+                    ctx.strokeStyle='#3a4a5a'; ctx.lineWidth=2; ctx.strokeRect(sx,w.y,w.w,w.h);
+                });
+            }
+            function drawChainPlatforms(ctx, camX) {
+                STATE.chainPlatforms.forEach(p => {
+                    const sx = p.x-camX; if (sx<-80||sx>GAME_W+80) return;
+                    ctx.strokeStyle='#4a5a6a'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+                    ctx.beginPath(); ctx.moveTo(sx+10,0); ctx.lineTo(sx+10,p.y);
+                    ctx.moveTo(sx+p.w-10,0); ctx.lineTo(sx+p.w-10,p.y); ctx.stroke(); ctx.setLineDash([]);
+                    ctx.fillStyle='#1a1a24'; ctx.fillRect(sx,p.y,p.w,p.h);
+                    ctx.fillStyle='#3a4a5a'; ctx.fillRect(sx+2,p.y+2,p.w-4,p.h-4);
+                });
+            }
+            function drawLasers(ctx, camX) {
+                const active = STATE.laserGlobalTimer % 2.5 < 1.5;
+                STATE.lasers.forEach(l => l.active = active);
+                if (!active) return;
+                STATE.lasers.forEach(l => {
+                    const sx = l.x-camX; if (sx<-20||sx>GAME_W+20) return;
+                    ctx.globalAlpha=0.8; ctx.fillStyle='#44eeff'; ctx.shadowColor='#00ccff'; ctx.shadowBlur=30;
+                    ctx.fillRect(sx+2,l.y,4,l.h); ctx.shadowBlur=0;
+                    ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect(sx+1,l.y,6,l.h); ctx.globalAlpha=1;
+                });
+            }
+            function drawInteractables(ctx, camX) {
+                STATE.interactables.forEach(item => {
+                    if (item.collected || (item.type==='door_interact'&&item.opened)) return;
+                    const sx = item.x-camX; if (sx<-40||sx>GAME_W+40) return;
+                    if (item.type === 'terminal') {
+                        ctx.fillStyle='#1a1a24'; ctx.fillRect(sx-4,item.y-4,38,28);
+                        ctx.fillStyle='#2a3a4a'; ctx.fillRect(sx-2,item.y-2,34,24);
+                        ctx.fillStyle='#44eeff'; ctx.font='8px "Courier New"'; ctx.textAlign='center'; ctx.fillText('[TERM]',sx+15,item.y+16);
+                    } else if (item.type === 'diary') {
+                        ctx.fillStyle='#2a1a10'; ctx.fillRect(sx,item.y,16,16);
+                        ctx.fillStyle='#4a3a20'; ctx.fillRect(sx+2,item.y+2,12,12);
+                        ctx.fillStyle='#ffaa00'; ctx.font='6px "Courier New"'; ctx.textAlign='center'; ctx.fillText('📄',sx+8,item.y+12);
+                    } else if (item.type === 'bow') {
+                        ctx.fillStyle='#ffaa00'; ctx.shadowColor='#ffcc00'; ctx.shadowBlur=20;
+                        ctx.fillRect(sx,item.y,20,12); ctx.shadowBlur=0;
+                        ctx.fillStyle='#fff'; ctx.font='8px "Courier New"'; ctx.textAlign='center'; ctx.fillText('🏹',sx+10,item.y+10);
+                    } else if (item.type === 'pill') {
+                        ctx.fillStyle='#ff4466'; ctx.shadowColor='#ff6688'; ctx.shadowBlur=10;
+                        ctx.fillRect(sx,item.y,12,8); ctx.fillStyle='#fff'; ctx.fillRect(sx+5,item.y+2,2,4); ctx.shadowBlur=0;
+                    } else if (item.type === 'door_interact') {
+                        ctx.fillStyle='#2a2a2a'; ctx.fillRect(sx-2,item.y-2,34,64);
+                        ctx.fillStyle='#4a3a2a'; ctx.fillRect(sx,item.y,30,60);
+                        ctx.fillStyle='#aa8840'; ctx.fillRect(sx+22,item.y+28,6,6);
+                        ctx.fillStyle='#fff'; ctx.font='5px "Courier New"'; ctx.textAlign='center'; ctx.fillText(item.label,sx+15,item.y-8);
+                    }
+                });
+                if (STATE.staircase) {
+                    const sx = STATE.staircase.x-camX;
+                    if (sx>-60 && sx<GAME_W+60) {
+                        const canGo = STATE.diaryFoundThisFloor && STATE.bossDefeated;
+                        ctx.fillStyle='#1a1a24'; ctx.fillRect(sx,STATE.staircase.y-60,40,60);
+                        ctx.fillStyle=canGo?'#2a4a3a':'#4a2a2a'; ctx.fillRect(sx+4,STATE.staircase.y-56,32,56);
+                        ctx.fillStyle=canGo?'#44eeff':'#ff2244'; ctx.font='6px "Courier New"'; ctx.textAlign='center';
+                        if (!STATE.bossDefeated && STATE.diaryFoundThisFloor) ctx.fillText('⚠ УБЕЙТЕ БОССА',sx+20,STATE.staircase.y-65);
+                        else if (!STATE.diaryFoundThisFloor && STATE.bossDefeated) ctx.fillText('📄 НАЙДИТЕ ДНЕВНИК',sx+20,STATE.staircase.y-65);
+                        else if (!STATE.diaryFoundThisFloor && !STATE.bossDefeated) ctx.fillText('🔒 ЗАКРЫТО',sx+20,STATE.staircase.y-65);
+                        else ctx.fillText('▶ ВЫХОД',sx+20,STATE.staircase.y-65);
+                    }
+                }
+            }
+
+            function update(dt) {
+                if (!STATE.gameStarted) return;
+                STATE.laserGlobalTimer += dt;
+                if (STATE.victory && !STATE.victoryShown) { STATE.victoryShown = true; showMessage('📓 ДНЕВНИК ДОКТОРА НАЙДЕН\n🦠 ВИРУС НЕЙТРАЛИЗОВАН', 6); }
+                if (STATE.gameOver || STATE.victory) { updateParticles(dt); STATE.screenShake *= 0.85; return; }
+                STATE.voiceTimer -= dt;
+                if (STATE.voiceTimer <= 0) { STATE.voiceTimer = 8+Math.random()*10; showMessage('...'+['Выходи...','Помоги нам...','Найди правду...','Не верь глазам...'][Math.floor(Math.random()*4)], 2); }
+                if (STATE.glitchTimer > 0) { STATE.glitchTimer -= dt; STATE.glitchIntensity = Math.max(0, STATE.glitchIntensity-dt*1.5); }
+                if (STATE.player && STATE.player.health > 0) STATE.player.update(dt);
+                for (let i = STATE.enemies.length-1; i >= 0; i--) {
+                    const e = STATE.enemies[i]; e.update(dt);
+                    if (!e.dead && STATE.player && STATE.player.health > 0 && e.x < STATE.player.x+STATE.player.w && e.x+e.w > STATE.player.x && e.y < STATE.player.y+STATE.player.h && e.y+e.h > STATE.player.y) { STATE.player.takeDamage(12+STATE.floor); e.hitFlash = 0.3; }
+                    if (e.dead && e.deathTimer <= 0) STATE.enemies.splice(i,1);
+                }
+                if (STATE.boss) STATE.boss.update(dt);
+                updateParticles(dt);
+                STATE.screenShake *= 0.85; STATE.shakeX = (Math.random()-0.5)*STATE.screenShake*2; STATE.shakeY = (Math.random()-0.5)*STATE.screenShake*2;
+                if (STATE.player) { STATE.cameraTargetX = STATE.player.x-GAME_W/2; STATE.cameraTargetX = Math.max(0, Math.min(2400-GAME_W, STATE.cameraTargetX)); STATE.cameraX += (STATE.cameraTargetX-STATE.cameraX)*dt*6; }
+                if (STATE.staircase && STATE.player && STATE.player.health > 0) {
+                    const s = STATE.staircase, p = STATE.player;
+                    if (p.x+p.w > s.x-10 && p.x < s.x+38 && p.y+p.h > s.y-55 && p.y < s.y+10) {
+                        if (STATE.floor === 5) {
+                            if (!STATE.diaryFoundThisFloor || !STATE.bossDefeated) { if (!STATE.bossDefeated) showMessage('⚠ СНАЧАЛА УБЕЙТЕ БОССА!', 1.5); else if (!STATE.diaryFoundThisFloor) showMessage('📄 НАЙДИТЕ СТРАНИЦУ ДНЕВНИКА!', 1.5); }
+                            else STATE.victory = true;
+                        } else if (STATE.floor < STATE.maxFloor) {
+                            if (STATE.diaryFoundThisFloor && STATE.bossDefeated) { const nf = STATE.floor+1; loadFloor(nf); floorText.textContent = `ЭТАЖ ${nf}`; showMessage(`🏥 ЭТАЖ ${nf}`, 2); }
+                            else if (!STATE.bossDefeated) showMessage('⚠ СНАЧАЛА УБЕЙТЕ БОССА!', 1.5);
+                            else if (!STATE.diaryFoundThisFloor) showMessage('📄 НАЙДИТЕ СТРАНИЦУ ДНЕВНИКА!', 1.5);
+                        }
+                    }
+                }
+                if (STATE.messageTimer > 0) { STATE.messageTimer -= dt; if (STATE.messageTimer <= 0) hideMessage(); }
+            }
+
+            function draw(ctx) {
+                ctx.clearRect(0,0,GAME_W,GAME_H);
+                const camX = STATE.cameraX;
+                ctx.save(); if (STATE.screenShake>0.5) ctx.translate(STATE.shakeX||0, STATE.shakeY||0);
+                drawBackground(ctx); drawWindows(ctx, camX); drawChainPlatforms(ctx, camX); drawLasers(ctx, camX);
+                STATE.platforms.forEach(p => {
+                    const sx = p.x-camX; if (sx>GAME_W+50||sx+p.w<-50) return;
+                    ctx.fillStyle='#1a1a24'; ctx.fillRect(sx,p.y,p.w,p.h);
+                    ctx.fillStyle=p.type==='wall'?(STATE.floor>=3?'#3a2a3a':'#3a2a2a'):(STATE.floor>=3?'#2a2a3a':'#2a3a4a');
+                    ctx.fillRect(sx+2,p.y+2,p.w-4,p.h-4);
+                    if (p.type==='shelf'||p.type==='box') { ctx.fillStyle='#3a4a5a'; ctx.fillRect(sx,p.y+p.h-2,p.w,2); }
+                });
+                drawInteractables(ctx, camX);
+                STATE.enemies.forEach(e => e.draw(ctx, camX));
+                if (STATE.boss) STATE.boss.draw(ctx, camX);
+                if (STATE.player && STATE.player.health > 0) STATE.player.draw(ctx, camX);
+                STATE.particles.forEach(p => {
+                    if (p.isExpOrb) { ctx.globalAlpha = 0.7 + Math.sin(Date.now()/200)*0.3; ctx.fillStyle = '#ffdd00'; ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 8; }
+                    else { ctx.globalAlpha = p.life/p.maxLife; ctx.fillStyle = p.color; ctx.shadowBlur = 0; }
+                    ctx.fillRect(p.x-camX-p.size/2, p.y-p.size/2, p.size, p.size);
+                });
+                ctx.shadowBlur = 0; ctx.globalAlpha=1;
+                if (STATE.glitchTimer>0) { ctx.fillStyle=`rgba(0,255,255,${(STATE.glitchIntensity||0.3)*0.3})`; ctx.fillRect(0,Math.random()*GAME_H,GAME_W,Math.random()*20); }
+                ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,0,GAME_W,GAME_H);
+                STATE.lights.forEach(l => {
+                    const g = ctx.createRadialGradient(l.x-camX,l.y,5,l.x-camX,l.y,l.radius);
+                    g.addColorStop(0,'rgba(255,240,220,0.2)'); g.addColorStop(1,'rgba(0,0,0,0)');
+                    ctx.fillStyle=g; ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(l.x-camX,l.y,l.radius,0,Math.PI*2); ctx.fill(); ctx.globalCompositeOperation='source-over';
+                });
+                if (STATE.gameOver) {
+                    ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,0,GAME_W,GAME_H);
+                    ctx.fillStyle='#ff2244'; ctx.font='36px "Courier New"'; ctx.textAlign='center'; ctx.fillText('💀 ВИРУС ПОГЛОТИЛ ТЕБЯ',GAME_W/2,GAME_H/2-10);
+                    ctx.fillStyle='#c8d4e0'; ctx.font='16px "Courier New"'; ctx.fillText(`Нажмите R для возрождения (Этаж ${STATE.lastSavedFloor||1})`,GAME_W/2,GAME_H/2+30);
+                }
+                if (STATE.victory) {
+                    ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(0,0,GAME_W,GAME_H);
+                    ctx.fillStyle='#ffffff'; ctx.font='28px "Courier New"'; ctx.textAlign='center';
+                    ctx.fillText('📓 ДНЕВНИК ДОКТОРА НАЙДЕН',GAME_W/2,GAME_H/2-30);
+                    ctx.fillText('🦠 ВИРУС НЕЙТРАЛИЗОВАН',GAME_W/2,GAME_H/2+10);
+                    ctx.fillStyle='#c8d4e0'; ctx.font='15px "Courier New"'; ctx.fillText('Нажмите R для новой игры',GAME_W/2,GAME_H/2+70);
+                }
+                ctx.restore();
+            }
+
+            function gameLoop(ts) {
+                if (!STATE.lastTime) STATE.lastTime = ts;
+                let dt = (ts-STATE.lastTime)/1000; if (dt>0.1) dt=0.1;
+                STATE.dt = dt; STATE.lastTime = ts;
+                update(dt); draw(ctx); requestAnimationFrame(gameLoop);
+            }
+
+            window.addEventListener('keydown', e => {
+                STATE.keys[e.code] = true;
+                if (e.code === 'KeyR') {
+                    STATE.collectedPages = new Set(); STATE.foundPages = 0; STATE.pillsUsed = 0;
+                    STATE.glitchTimer = 0; STATE.voiceTimer = 0; STATE.laserGlobalTimer = 0;
+                    STATE.victoryShown = false; STATE.bossDroppedLoot = false; STATE.bossHitCount = 0;
+                    if (STATE.victory) { STATE.hasBow = false; STATE.bowFound = false; }
+                    loadFloor(STATE.lastSavedFloor||1);
+                    STATE.player.health = STATE.player.maxHealth; updateHealthBar(); updateBossHealthBar(); hideMessage();
+                    showMessage(`💾 Сохранение загружено. Этаж ${STATE.lastSavedFloor||1}`, 3);
+                }
+                if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+            });
+            window.addEventListener('keyup', e => { STATE.keys[e.code] = false; });
+            canvas.addEventListener('mousedown', e => { STATE.mouseDown = true; e.preventDefault(); });
+            canvas.addEventListener('mouseup', e => { STATE.mouseDown = false; e.preventDefault(); });
+            canvas.addEventListener('contextmenu', e => e.preventDefault());
+            startBtn.addEventListener('click', () => {
+                introOverlay.classList.add('hidden'); STATE.gameStarted = true;
+                STATE.collectedPages = new Set(); STATE.foundPages = 0; STATE.pillsUsed = 0;
+                STATE.glitchTimer = 0; STATE.voiceTimer = 0; STATE.laserGlobalTimer = 0;
+                STATE.lastSavedFloor = 1; STATE.hasBow = false; STATE.bowFound = false; STATE.victoryShown = false;
+                STATE.bossDroppedLoot = false; STATE.bossHitCount = 0;
+                loadFloor(1); STATE.player.health = STATE.player.maxHealth; updateHealthBar(); updateBossHealthBar();
+            });
+
+            function init() {
+                STATE.player = new Player(100, GAME_H-100);
+                STATE.lastSavedFloor = 1; STATE.hasBow = false; STATE.bowFound = false; STATE.victoryShown = false;
+                STATE.bossDroppedLoot = false; STATE.bossHitCount = 0;
+                loadFloor(1); STATE.player.health = STATE.player.maxHealth; updateHealthBar(); updateBossHealthBar();
+                STATE.lastTime = performance.now(); requestAnimationFrame(gameLoop);
+            }
+            init();
+            console.log('⛓ "Карантин" — Финальная версия!');
+        })();
+    </script>
+</body>
+</html>
