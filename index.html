@@ -65,10 +65,6 @@
       width: 100%;
       height: 100%;
       image-rendering: auto;
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 1;
     }
     #ui-overlay {
       position: absolute;
@@ -249,7 +245,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      z-index: 50;
+      z-index: 30;
       background: rgba(5, 5, 16, 0.98);
       display: flex;
       flex-direction: column;
@@ -260,7 +256,6 @@
       text-align: center;
       padding: 20px;
       transition: opacity 0.8s;
-      pointer-events: auto;
     }
     #intro-overlay.hidden { opacity: 0; pointer-events: none; }
     #intro-overlay h1 { font-size: clamp(24px, 5vmin, 48px); color: #ff4466; margin-bottom: 10px; letter-spacing: 6px; text-shadow: 0 0 40px rgba(255, 68, 102, 0.3); }
@@ -279,8 +274,6 @@
       letter-spacing: 2px;
       box-shadow: 0 0 15px rgba(255, 68, 102, 0.1);
       touch-action: manipulation;
-      position: relative;
-      z-index: 60;
     }
     #intro-overlay .start-btn:hover, #intro-overlay .start-btn:active { background: #1a0a10; border-color: #ff6688; box-shadow: 0 0 30px rgba(255, 68, 102, 0.4); }
 
@@ -292,9 +285,9 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      z-index: 40;
-      padding: 0 10px;
       pointer-events: none;
+      z-index: 25;
+      padding: 0 10px;
     }
     .touch-group { display: flex; gap: 8px; align-items: center; pointer-events: auto; }
     .touch-btn {
@@ -318,8 +311,6 @@
       -webkit-appearance: none;
       appearance: none;
       outline: none;
-      position: relative;
-      z-index: 45;
     }
     .touch-btn:active { background: rgba(30, 50, 70, 0.9); border-color: #44eeff; }
     #touch-jump { background: rgba(20, 40, 30, 0.9); border-color: #44ff66; }
@@ -341,7 +332,6 @@
       appearance: none;
       outline: none;
       z-index: 100;
-      position: relative;
     }
 
     @media (max-width: 768px) {
@@ -484,7 +474,9 @@
     canvas.height = GAME_H;
     ctx.imageSmoothingEnabled = false;
 
+    // Переменные состояния для touch и mouse
     let touchLeft = false, touchRight = false, touchJump = false, touchAttack = false, touchInteract = false;
+    let isMouseDown = false;
 
     const STATE = {
       floor: 1, maxFloor: 5, player: null, enemies: [], boss: null,
@@ -505,13 +497,13 @@
 
     function updateFloorStyling() {
       const floor = STATE.floor;
-      let secondaryColor, hintBorderColor, hintTextColor;
+      let primaryColor, secondaryColor, hintBorderColor, hintTextColor;
       if (floor <= 2) {
-        secondaryColor = '#3a5a6a'; hintBorderColor = '#ff4466'; hintTextColor = '#e0e8f0';
+        primaryColor = '#2a4a5a'; secondaryColor = '#3a5a6a'; hintBorderColor = '#ff4466'; hintTextColor = '#e0e8f0';
       } else if (floor <= 4) {
-        secondaryColor = '#5a3a6a'; hintBorderColor = '#aa44ff'; hintTextColor = '#e8d0ff';
+        primaryColor = '#4a2a5a'; secondaryColor = '#5a3a6a'; hintBorderColor = '#aa44ff'; hintTextColor = '#e8d0ff';
       } else {
-        secondaryColor = '#6a3a3a'; hintBorderColor = '#ff6644'; hintTextColor = '#ffe0d0';
+        primaryColor = '#5a2a2a'; secondaryColor = '#6a3a3a'; hintBorderColor = '#ff6644'; hintTextColor = '#ffe0d0';
       }
       document.querySelectorAll('.touch-btn').forEach(btn => {
         btn.style.background = `rgba(20, 30, 40, 0.9)`;
@@ -665,9 +657,11 @@
         }
         this.x = Math.max(10, Math.min(2370, this.x));
         if (this.y > GAME_H + 100) { this.health = 0; this.die(); }
+        // Атака через клавиши, мышь или touch кнопку
         if ((STATE.keys['KeyJ'] || STATE.mouseDown || touchAttack) && this.attackCdTimer <= 0 && !this.attacking) this.attack();
         if (this.attacking) this.checkAttackHit();
         if (STATE.interactCooldown > 0) STATE.interactCooldown -= dt;
+        // Взаимодействие через клавишу E или touch кнопку
         if ((STATE.keys['KeyE'] || touchInteract) && STATE.interactCooldown <= 0) { STATE.interactCooldown = 0.5; this.interact(); }
         this.checkNearInteractables();
         if (this.health > 0) for (const laser of STATE.lasers) { if (!laser.active) continue; if (this.x+this.w > laser.x+2 && this.x < laser.x+6 && this.y+this.h > laser.y && this.y < laser.y+laser.h) this.takeDamage(15); }
@@ -1156,7 +1150,7 @@
       if (STATE.gameOver) {
         ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,0,GAME_W,GAME_H);
         ctx.fillStyle='#ff2244'; ctx.font='36px "Courier New"'; ctx.textAlign='center'; ctx.fillText('💀 ВИРУС ПОГЛОТИЛ ТЕБЯ',GAME_W/2,GAME_H/2-10);
-        ctx.fillStyle='#c8d4e0'; ctx.font='16px "Courier New"'; ctx.fillText('Нажмите R или коснитесь экрана для возрождения',GAME_W/2,GAME_H/2+30);
+        ctx.fillStyle='#c8d4e0'; ctx.font='16px "Courier New"'; ctx.fillText(`Нажмите R или коснитесь экрана (Этаж ${STATE.lastSavedFloor||1})`,GAME_W/2,GAME_H/2+30);
       }
       if (STATE.victory) {
         ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(0,0,GAME_W,GAME_H);
@@ -1200,6 +1194,7 @@
       showMessage(`💾 Сохранение загружено. Этаж ${STATE.lastSavedFloor||1}`, 3);
     }
 
+    // Клавиатура
     window.addEventListener('keydown', e => {
       STATE.keys[e.code] = true;
       if (e.code === 'KeyR' && (STATE.gameOver || STATE.victory)) {
@@ -1209,30 +1204,61 @@
     });
     window.addEventListener('keyup', e => { STATE.keys[e.code] = false; });
     
-    // Обработчики canvas
+    // Мышь
     canvas.addEventListener('mousedown', e => { 
-      STATE.mouseDown = true; 
+      STATE.mouseDown = true;
       e.preventDefault();
+      e.stopPropagation();
+      // Возрождение при клике на canvas если игра окончена
       if (STATE.gameOver) {
         respawnPlayer();
       }
     });
-    canvas.addEventListener('mouseup', e => { STATE.mouseDown = false; e.preventDefault(); });
-    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    
+    canvas.addEventListener('mouseup', e => { 
+      STATE.mouseDown = false; 
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    
+    canvas.addEventListener('mouseleave', e => {
+      STATE.mouseDown = false;
+    });
+    
+    canvas.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
 
-    // Touch для возрождения
+    // Сенсорный экран (canvas)
     canvas.addEventListener('touchstart', (e) => {
       e.preventDefault();
+      e.stopPropagation();
+      STATE.mouseDown = true;
+    }, {passive: false});
+    
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      STATE.mouseDown = false;
+      // Возрождение при касании canvas если игра окончена
       if (STATE.gameOver) {
         respawnPlayer();
       }
-    });
+    }, {passive: false});
+    
+    canvas.addEventListener('touchcancel', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      STATE.mouseDown = false;
+    }, {passive: false});
 
-    // Универсальная настройка кнопок
+    // Универсальная настройка кнопок управления (touch + mouse)
     function setupTouchButton(id, pressVar) {
       const btn = document.getElementById(id);
       if (!btn) return;
       
+      // Touch события
       btn.addEventListener('touchstart', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1251,6 +1277,7 @@
         window[pressVar] = false;
       }, {passive: false});
       
+      // Mouse события
       btn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1268,6 +1295,7 @@
         window[pressVar] = false;
       });
 
+      // Предотвращаем дефолтный click
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1299,8 +1327,14 @@
     fullscreenBtn.addEventListener('click', toggleFullscreen);
     fullscreenBtn.addEventListener('touchend', toggleFullscreen);
 
-    startBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); });
-    startBtn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); });
+    // Кнопка старта
+    function handleStart(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      startGame();
+    }
+    startBtn.addEventListener('click', handleStart);
+    startBtn.addEventListener('touchend', handleStart);
     
     function startGame() {
       introOverlay.classList.add('hidden');
@@ -1341,7 +1375,7 @@
       requestAnimationFrame(gameLoop);
     }
     init();
-    console.log('⛓ "Карантин" — Все кнопки работают на ПК и телефоне!');
+    console.log('⛓ "Карантин" — Полная поддержка touch и mouse! Клик/тап для возрождения!');
   })();
 </script>
 </body>
