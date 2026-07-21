@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=yes">
   <title>Карантин. Больница.</title>
   
   <!-- PWA Meta Tags -->
@@ -13,10 +13,7 @@
   <meta name="theme-color" content="#05050e">
   <meta name="description" content="Вирус искажает реальность. Вы слышите голоса. За вами охотятся заражённые.">
   
-  <!-- Apple Touch Icon -->
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛓</text></svg>">
-  
-  <!-- Manifest -->
   <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogItCa0LDRgNCw0L3RgtC40L0iLAogICJzaG9ydF9uYW1lIjogItCa0LDRgNCw0L3RgtC40L0iLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAiZnVsbHNjcmVlbiIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzA1MDUwZSIsCiAgInRoZW1lX2NvbG9yIjogIiMwNTA1MGUiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWwsPHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJz48dGV4dCB5PScuOWVtJyBmb250LXNpemU9JzkwJz7im5M8L3RleHQ+PC9zdmc+IiwKICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIgogICAgfQogIF0KfQ==">
   
   <style>
@@ -47,11 +44,12 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      padding: 0;
     }
     #game-wrapper {
       position: relative;
-      width: 100vmin;
-      height: 56.25vmin;
+      width: 100%;
+      height: 100%;
       max-width: 960px;
       max-height: 540px;
       border: 2px solid #1c2e3a;
@@ -308,6 +306,8 @@
       -webkit-tap-highlight-color: transparent;
       transition: background 0.2s, border-color 0.2s;
       cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
     }
     .touch-btn:active { background: rgba(30, 50, 70, 0.9); border-color: #44eeff; }
     #touch-jump { background: rgba(20, 40, 30, 0.9); border-color: #44ff66; }
@@ -325,6 +325,9 @@
       font-family: 'Courier New', monospace;
       pointer-events: auto;
       touch-action: manipulation;
+      -webkit-appearance: none;
+      appearance: none;
+      z-index: 100;
     }
 
     @media (max-width: 768px) {
@@ -812,7 +815,6 @@
         this.x = x; this.y = y;
         const sizeMult = floor >= 5 ? 1.6 : floor >= 4 ? 1.4 : floor >= 3 ? 1.2 : 1;
         this.w = 44 * sizeMult; this.h = 52 * sizeMult;
-        // Уменьшено на 2 HP у всех боссов
         const hpMult = floor === 5 ? 5 : floor === 4 ? 3 : floor === 3 ? 2 : 1;
         this.hp = (8 + floor * 6) * hpMult + 13; 
         this.maxHp = this.hp;
@@ -1167,10 +1169,12 @@
     canvas.addEventListener('mouseup', e => { STATE.mouseDown = false; e.preventDefault(); });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
+    // Универсальная настройка кнопок (работает и на ПК и на телефоне)
     function setupTouchButton(id, pressVar) {
       const btn = document.getElementById(id);
       if (!btn) return;
       
+      // Обработчик для touch-устройств
       btn.addEventListener('touchstart', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1189,6 +1193,7 @@
         window[pressVar] = false;
       }, {passive: false});
       
+      // Обработчик для мыши (ПК)
       btn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1206,6 +1211,7 @@
         window[pressVar] = false;
       });
 
+      // Предотвращаем двойное срабатывание click
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1218,8 +1224,26 @@
     setupTouchButton('touch-attack', 'touchAttack');
     setupTouchButton('touch-interact', 'touchInteract');
 
+    // Кнопка полного экрана (отдельная логика)
     fullscreenBtn.addEventListener('click', (e) => {
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
+      const wrapper = document.getElementById('game-wrapper');
+      if (!document.fullscreenElement) {
+        if (wrapper.requestFullscreen) wrapper.requestFullscreen().catch(() => {});
+        else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
+        else if (wrapper.msRequestFullscreen) wrapper.msRequestFullscreen();
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
+      }
+    });
+
+    // Touch-обработчик для кнопки полного экрана
+    fullscreenBtn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const wrapper = document.getElementById('game-wrapper');
       if (!document.fullscreenElement) {
         if (wrapper.requestFullscreen) wrapper.requestFullscreen().catch(() => {});
@@ -1274,7 +1298,7 @@
       requestAnimationFrame(gameLoop);
     }
     init();
-    console.log('⛓ "Карантин" — PWA готово! Боссы ослаблены на 2 HP.');
+    console.log('⛓ "Карантин" — Все кнопки работают! PWA готово!');
   })();
 </script>
 </body>
