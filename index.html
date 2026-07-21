@@ -57,6 +57,13 @@
       background: #050510;
       overflow: hidden;
     }
+    #game-wrapper.fullscreen-active {
+      width: 100vw;
+      height: 100vh;
+      max-width: none;
+      max-height: none;
+      min-height: auto;
+    }
     canvas {
       display: block;
       width: 100%;
@@ -365,7 +372,7 @@
     }
 
     @media (orientation: portrait) {
-      #game-wrapper {
+      #game-wrapper:not(.fullscreen-active) {
         width: 100vw;
         height: 56.25vw;
         min-height: 200px;
@@ -455,6 +462,7 @@
     const startBtn = document.getElementById('startBtn');
     const fullscreenBtn = document.getElementById('fullscreen-btn');
     const controlsHint = document.getElementById('controls-hint');
+    const gameWrapper = document.getElementById('game-wrapper');
 
     // ============ Игровые константы ============
     const GAME_W = 960, GAME_H = 540;
@@ -490,11 +498,123 @@
       restartingGame: false, walkInComplete: false
     };
 
+    // ============ Полноэкранный режим ============
+    function isFullscreen() {
+      return !!(document.fullscreenElement || 
+                document.webkitFullscreenElement || 
+                document.mozFullScreenElement ||
+                document.msFullscreenElement);
+    }
+
+    function enterFullscreen() {
+      const el = gameWrapper;
+      
+      // Стандартный Fullscreen API
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(err => {
+          console.log('Fullscreen request failed, trying alternatives...');
+          // Альтернативные методы
+          if (el.webkitRequestFullscreen) {
+            el.webkitRequestFullscreen();
+          } else if (el.webkitEnterFullscreen) {
+            el.webkitEnterFullscreen(); // Для iOS
+          } else if (el.mozRequestFullScreen) {
+            el.mozRequestFullScreen();
+          } else if (el.msRequestFullscreen) {
+            el.msRequestFullscreen();
+          }
+        });
+      } 
+      // Webkit (Safari, старые версии Chrome)
+      else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+      // Webkit Enter Fullscreen (iOS Safari)
+      else if (el.webkitEnterFullscreen) {
+        el.webkitEnterFullscreen();
+      }
+      // Mozilla
+      else if (el.mozRequestFullScreen) {
+        el.mozRequestFullScreen();
+      }
+      // IE/Edge
+      else if (el.msRequestFullscreen) {
+        el.msRequestFullscreen();
+      }
+      
+      // Добавляем класс для стилизации
+      gameWrapper.classList.add('fullscreen-active');
+    }
+
+    function exitFullscreen() {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.webkitCancelFullScreen) {
+        document.webkitCancelFullScreen();
+      } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+      
+      gameWrapper.classList.remove('fullscreen-active');
+    }
+
+    function toggleFullscreen(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      
+      if (isFullscreen()) {
+        exitFullscreen();
+      } else {
+        enterFullscreen();
+      }
+    }
+
+    // Обработчик изменения состояния полноэкранного режима
+    function onFullscreenChange() {
+      if (!isFullscreen()) {
+        gameWrapper.classList.remove('fullscreen-active');
+      } else {
+        gameWrapper.classList.add('fullscreen-active');
+      }
+    }
+
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+    document.addEventListener('mozfullscreenchange', onFullscreenChange);
+    document.addEventListener('MSFullscreenChange', onFullscreenChange);
+
+    // Двойное касание для полноэкранного режима на мобильных устройствах
+    let lastTapTime = 0;
+    gameWrapper.addEventListener('touchend', (e) => {
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTapTime;
+      
+      // Проверяем, что касание не на кнопке
+      if (e.target === canvas || e.target === gameWrapper) {
+        if (tapLength < 300 && tapLength > 0) {
+          // Двойное касание
+          toggleFullscreen(e);
+        }
+      }
+      lastTapTime = currentTime;
+    });
+
     // ============ Обработчики ввода ============
     function setupInputHandlers() {
       // Клавиатура
       window.addEventListener('keydown', (e) => {
         INPUT.keys[e.code] = true;
+        
+        // F11 или F для полноэкранного режима
+        if (e.code === 'KeyF' && !e.ctrlKey && !e.metaKey) {
+          toggleFullscreen(e);
+        }
         
         // R для возрождения
         if (e.code === 'KeyR' && (STATE.gameOver || STATE.victory)) {
@@ -639,21 +759,6 @@
       setupButton('touch-interact', 'interact', true); // toggle для взаимодействия
 
       // Кнопка полного экрана
-      function toggleFullscreen(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const wrapper = document.getElementById('game-wrapper');
-        if (!document.fullscreenElement) {
-          if (wrapper.requestFullscreen) wrapper.requestFullscreen().catch(() => {});
-          else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
-          else if (wrapper.msRequestFullscreen) wrapper.msRequestFullscreen();
-        } else {
-          if (document.exitFullscreen) document.exitFullscreen();
-          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-          else if (document.msExitFullscreen) document.msExitFullscreen();
-        }
-      }
-
       fullscreenBtn.addEventListener('click', toggleFullscreen);
       fullscreenBtn.addEventListener('touchend', toggleFullscreen);
 
@@ -1440,7 +1545,6 @@
       
       drawBackground(ctx); 
       
-      // Окна
       if (STATE.windows) {
         const colors = getFloorColors(STATE.floor);
         STATE.windows.forEach(w => {
@@ -1451,7 +1555,6 @@
         });
       }
       
-      // Цепные платформы
       STATE.chainPlatforms.forEach(p => {
         const sx = p.x-camX; if (sx<-80||sx>GAME_W+80) return;
         ctx.strokeStyle='#4a5a6a'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
@@ -1461,7 +1564,6 @@
         ctx.fillStyle='#3a4a5a'; ctx.fillRect(sx+2,p.y+2,p.w-4,p.h-4);
       });
       
-      // Лазеры
       const laserActive = STATE.laserGlobalTimer % 2.5 < 1.5;
       STATE.lasers.forEach(l => l.active = laserActive);
       if (laserActive) {
@@ -1473,7 +1575,6 @@
         });
       }
       
-      // Платформы
       STATE.platforms.forEach(p => {
         const sx = p.x-camX; if (sx>GAME_W+50||sx+p.w<-50) return;
         ctx.fillStyle='#1a1a24'; ctx.fillRect(sx,p.y,p.w,p.h);
@@ -1482,7 +1583,6 @@
         if (p.type==='shelf'||p.type==='box') { ctx.fillStyle='#3a4a5a'; ctx.fillRect(sx,p.y+p.h-2,p.w,2); }
       });
       
-      // Интерактивные объекты
       STATE.interactables.forEach(item => {
         if (item.collected || (item.type==='door_interact'&&item.opened)) return;
         const sx = item.x-camX; if (sx<-40||sx>GAME_W+40) return;
@@ -1509,7 +1609,6 @@
         }
       });
       
-      // Лестница
       if (STATE.staircase) {
         const sx = STATE.staircase.x-camX;
         if (sx>-60 && sx<GAME_W+60) {
@@ -1524,12 +1623,10 @@
         }
       }
       
-      // Враги и босс
       STATE.enemies.forEach(e => e.draw(ctx, camX));
       if (STATE.boss) STATE.boss.draw(ctx, camX);
       if (STATE.player && STATE.player.health > 0) STATE.player.draw(ctx, camX);
       
-      // Частицы
       STATE.particles.forEach(p => {
         if (p.isExpOrb) { 
           ctx.globalAlpha = 0.7 + Math.sin(Date.now()/200)*0.3; 
@@ -1542,14 +1639,12 @@
       });
       ctx.shadowBlur = 0; ctx.globalAlpha=1;
       
-      // Эффекты
       if (STATE.glitchTimer>0) { 
         ctx.fillStyle=`rgba(0,255,255,${(STATE.glitchIntensity||0.3)*0.3})`; 
         ctx.fillRect(0,Math.random()*GAME_H,GAME_W,Math.random()*20); 
       }
       ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,0,GAME_W,GAME_H);
       
-      // Освещение
       STATE.lights.forEach(l => {
         const g = ctx.createRadialGradient(l.x-camX,l.y,5,l.x-camX,l.y,l.radius);
         g.addColorStop(0,'rgba(255,240,220,0.2)'); g.addColorStop(1,'rgba(0,0,0,0)');
@@ -1558,7 +1653,6 @@
         ctx.globalCompositeOperation='source-over';
       });
       
-      // Экраны Game Over и Victory
       if (STATE.gameOver) {
         ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,0,GAME_W,GAME_H);
         ctx.fillStyle='#ff2244'; ctx.font='36px "Courier New"'; ctx.textAlign='center'; 
@@ -1708,7 +1802,7 @@
 
     setupInputHandlers();
     init();
-    console.log('⛓ "Карантин" — Полная поддержка клавиатуры, мыши и сенсора!');
+    console.log('⛓ "Карантин" — Полноэкранный режим для всех устройств! F11, F, кнопка или двойное касание!');
   })();
 </script>
 </body>
