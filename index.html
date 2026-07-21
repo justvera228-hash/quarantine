@@ -4,6 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Карантин. Больница.</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Карантин">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#05050e">
+  <meta name="description" content="Вирус искажает реальность. Вы слышите голоса. За вами охотятся заражённые.">
+  
+  <!-- Apple Touch Icon -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛓</text></svg>">
+  
+  <!-- Manifest -->
+  <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogItCa0LDRgNCw0L3RgtC40L0iLAogICJzaG9ydF9uYW1lIjogItCa0LDRgNCw0L3RgtC40L0iLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAiZnVsbHNjcmVlbiIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzA1MDUwZSIsCiAgInRoZW1lX2NvbG9yIjogIiMwNTA1MGUiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWwsPHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJz48dGV4dCB5PScuOWVtJyBmb250LXNpemU9JzkwJz7im5M8L3RleHQ+PC9zdmc+IiwKICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIgogICAgfQogIF0KfQ==">
+  
   <style>
     :root {
       --bg: #05050e;
@@ -12,132 +27,234 @@
       --accent: #00e5ff;
       --danger: #ff2244;
       --health: #ff4466;
-      --floor-btn-1: #2a4a5a;
-      --floor-btn-2: #2a3a4a;
-      --floor-btn-3: #3a2a3a;
-      --floor-btn-4: #3a2a2a;
-      --floor-btn-5: #1a3a4a;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
       background: #020208;
-      display: flex; justify-content: center; align-items: center;
-      height: 100vh; width: 100vw; overflow: hidden;
-      font-family: 'Courier New', monospace; user-select: none; cursor: default;
-      touch-action: pan-x pan-y;
+      font-family: 'Courier New', monospace;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     #game-wrapper {
       position: relative;
-      width: 100vmin; height: 56.25vmin; max-width: 960px; max-height: 540px;
-      border: 2px solid #1c2e3a; box-shadow: 0 0 60px rgba(0, 200, 255, 0.1);
-      background: #050510; image-rendering: pixelated;
+      width: 100vmin;
+      height: 56.25vmin;
+      max-width: 960px;
+      max-height: 540px;
+      border: 2px solid #1c2e3a;
+      box-shadow: 0 0 60px rgba(0, 200, 255, 0.1);
+      background: #050510;
       overflow: hidden;
+      image-rendering: auto;
     }
-    canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
-
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: auto;
+    }
     #ui-overlay {
-      position: absolute; top: 12px; left: 16px; right: 16px;
-      display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
-      font-family: 'Courier New', monospace; color: var(--text);
-      text-shadow: 0 0 8px rgba(0, 0, 0, 0.9); letter-spacing: 1px;
+      position: absolute;
+      top: 12px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 10;
+      font-family: 'Courier New', monospace;
+      color: var(--text);
+      text-shadow: 0 0 8px rgba(0, 0, 0, 0.9);
+      letter-spacing: 1px;
     }
     .health-container {
-      background: rgba(8, 12, 20, 0.85); padding: 6px 10px;
-      border: 1px solid #2a4a5a; border-radius: 2px;
-      display: flex; align-items: center; gap: 8px;
+      background: rgba(8, 12, 20, 0.85);
+      padding: 6px 10px;
+      border: 1px solid #2a4a5a;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       box-shadow: inset 0 0 10px rgba(255, 68, 102, 0.1);
     }
     .heart-icon {
-      font-size: 18px; color: #ff4466;
+      font-size: 18px;
+      color: #ff4466;
       text-shadow: 0 0 10px rgba(255, 68, 102, 0.8);
       animation: pulse 1s infinite;
     }
     @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
     .health-bar-bg {
-      width: 120px; height: 14px; border: 1px solid #4a2a3a;
-      background: #1a0a10; position: relative;
+      width: 120px;
+      height: 14px;
+      border: 1px solid #4a2a3a;
+      background: #1a0a10;
+      position: relative;
     }
     .health-bar-fill {
-      height: 100%; background: linear-gradient(90deg, #ff2244, #ff4466);
+      height: 100%;
+      background: linear-gradient(90deg, #ff2244, #ff4466);
       box-shadow: 0 0 10px rgba(255, 68, 102, 0.6);
-      transition: width 0.3s; width: 100%;
+      transition: width 0.3s;
+      width: 100%;
     }
     .health-text {
-      font-size: clamp(10px, 1.6vmin, 14px); color: #ff6688;
+      font-size: clamp(10px, 1.6vmin, 14px);
+      color: #ff6688;
       text-shadow: 0 0 8px rgba(255, 68, 102, 0.5);
-      min-width: 45px; text-align: center;
+      min-width: 45px;
+      text-align: center;
     }
     .boss-health-container {
-      background: rgba(8, 12, 20, 0.85); padding: 6px 10px;
-      border: 1px solid #2a4a5a; border-radius: 2px;
-      display: none; align-items: center; gap: 8px;
+      background: rgba(8, 12, 20, 0.85);
+      padding: 6px 10px;
+      border: 1px solid #2a4a5a;
+      border-radius: 2px;
+      display: none;
+      align-items: center;
+      gap: 8px;
       box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.15);
     }
     .boss-health-container.visible { display: flex; }
     .boss-icon { font-size: 16px; color: #ff0044; text-shadow: 0 0 10px rgba(255, 0, 68, 0.8); animation: bossPulse 0.8s infinite; }
     @keyframes bossPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
     .boss-health-bar-bg {
-      width: 120px; height: 14px; border: 1px solid #3a1a1a;
-      background: #0a0a0a; position: relative;
+      width: 120px;
+      height: 14px;
+      border: 1px solid #3a1a1a;
+      background: #0a0a0a;
+      position: relative;
     }
     .boss-health-bar-fill {
-      height: 100%; background: linear-gradient(90deg, #880022, #cc0033);
+      height: 100%;
+      background: linear-gradient(90deg, #880022, #cc0033);
       box-shadow: 0 0 10px rgba(255, 0, 0, 0.6);
-      transition: width 0.3s; width: 100%;
+      transition: width 0.3s;
+      width: 100%;
     }
     .boss-health-text {
-      font-size: clamp(9px, 1.4vmin, 13px); color: #ff4466;
+      font-size: clamp(9px, 1.4vmin, 13px);
+      color: #ff4466;
       text-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
-      min-width: 40px; text-align: center;
+      min-width: 40px;
+      text-align: center;
     }
     .boss-name-text {
-      font-size: clamp(8px, 1.2vmin, 11px); color: #ff6688;
+      font-size: clamp(8px, 1.2vmin, 11px);
+      color: #ff6688;
       text-shadow: 0 0 6px rgba(255, 0, 0, 0.4);
       margin-right: 4px;
     }
     .status-text { font-size: clamp(10px, 1.6vmin, 15px); color: #8098a8; text-shadow: 0 0 5px rgba(0,0,0,0.8); }
-    
-    #ui-right-group {
-      display: flex; gap: 8px; align-items: flex-start;
-    }
+    #ui-right-group { display: flex; gap: 8px; align-items: flex-start; }
     .status-bar { 
-      background: rgba(8, 12, 20, 0.85); padding: 4px 8px; border: 1px solid #2a4a5a; border-radius: 2px; 
-      display: flex; align-items: center; gap: 4px;
+      background: rgba(8, 12, 20, 0.85);
+      padding: 4px 8px;
+      border: 1px solid #2a4a5a;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
     .status-bar-floor { 
-      background: rgba(8, 12, 20, 0.85); padding: 6px 10px; border: 1px solid #2a4a5a; border-radius: 2px; 
-      display: flex; align-items: center; gap: 4px;
+      background: rgba(8, 12, 20, 0.85);
+      padding: 6px 10px;
+      border: 1px solid #2a4a5a;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
     #ui-left-group { display: flex; gap: 10px; align-items: flex-start; }
     #message-center {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      pointer-events: none; z-index: 20; font-family: 'Courier New', monospace;
-      font-size: clamp(14px, 2.5vmin, 22px); color: #e0f0ff;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 20;
+      font-family: 'Courier New', monospace;
+      font-size: clamp(14px, 2.5vmin, 22px);
+      color: #e0f0ff;
       text-shadow: 0 0 20px rgba(0, 200, 255, 0.8), 0 0 40px rgba(0, 0, 0, 0.9);
-      letter-spacing: 3px; text-align: center; opacity: 0; transition: opacity 0.4s;
+      letter-spacing: 3px;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.4s;
+      max-width: 90%;
     }
     #message-center.visible { opacity: 1; }
     #controls-hint {
-      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-      pointer-events: none; z-index: 10; font-family: 'Courier New', monospace;
-      font-size: clamp(8px, 1.2vmin, 11px); color: #4a5a6a; letter-spacing: 2px; text-align: center;
-      background: rgba(0, 0, 0, 0.7); padding: 3px 12px; border-radius: 2px;
-      border: 1px solid #1a2a3a; white-space: nowrap;
+      position: absolute;
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 10;
+      font-family: 'Courier New', monospace;
+      font-size: clamp(6px, 1vmin, 9px);
+      color: #d0d8e0;
+      letter-spacing: 1.5px;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 2px 10px;
+      border-radius: 2px;
+      border: 1px solid #ff4466;
+      box-shadow: 0 0 8px rgba(255, 68, 102, 0.4);
+      white-space: nowrap;
+      text-shadow: 0 0 6px rgba(0,0,0,0.9);
+      line-height: 1.2;
     }
     #interact-hint {
-      position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
-      pointer-events: none; z-index: 10; font-family: 'Courier New', monospace;
-      font-size: clamp(10px, 1.5vmin, 14px); color: #44eeff;
-      text-shadow: 0 0 10px rgba(0, 204, 255, 0.6); letter-spacing: 2px; text-align: center;
-      opacity: 0; transition: opacity 0.3s; background: rgba(0, 0, 0, 0.85);
-      padding: 4px 12px; border-radius: 2px; border: 1px solid #2a4a5a;
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 10;
+      font-family: 'Courier New', monospace;
+      font-size: clamp(10px, 1.5vmin, 14px);
+      color: #44eeff;
+      text-shadow: 0 0 10px rgba(0, 204, 255, 0.6);
+      letter-spacing: 2px;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.3s;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 4px 12px;
+      border-radius: 2px;
+      border: 1px solid #2a4a5a;
     }
     #interact-hint.visible { opacity: 1; }
     #intro-overlay {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      z-index: 30; background: rgba(5, 5, 16, 0.98);
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      font-family: 'Courier New', monospace; color: #c0d0e0; text-align: center; padding: 20px;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 30;
+      background: rgba(5, 5, 16, 0.98);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Courier New', monospace;
+      color: #c0d0e0;
+      text-align: center;
+      padding: 20px;
       transition: opacity 0.8s;
     }
     #intro-overlay.hidden { opacity: 0; pointer-events: none; }
@@ -145,46 +262,102 @@
     #intro-overlay p { font-size: clamp(12px, 2vmin, 18px); max-width: 500px; line-height: 1.6; color: #6a8a9a; margin: 5px 0; }
     #intro-overlay .subtitle { color: #2a4a5a; font-size: clamp(10px, 1.5vmin, 14px); margin-top: 15px; letter-spacing: 3px; }
     #intro-overlay .start-btn {
-      margin-top: 20px; padding: 10px 30px; background: #0a1a22;
-      border: 2px solid #ff4466; color: #c0d0e0;
-      font-family: 'Courier New', monospace; font-size: clamp(14px, 2vmin, 18px);
-      cursor: pointer; transition: all 0.3s; letter-spacing: 2px;
+      margin-top: 20px;
+      padding: 10px 30px;
+      background: #0a1a22;
+      border: 2px solid #ff4466;
+      color: #c0d0e0;
+      font-family: 'Courier New', monospace;
+      font-size: clamp(14px, 2vmin, 18px);
+      cursor: pointer;
+      transition: all 0.3s;
+      letter-spacing: 2px;
       box-shadow: 0 0 15px rgba(255, 68, 102, 0.1);
+      touch-action: manipulation;
     }
-    #intro-overlay .start-btn:hover { background: #1a0a10; border-color: #ff6688; box-shadow: 0 0 30px rgba(255, 68, 102, 0.4); }
+    #intro-overlay .start-btn:hover, #intro-overlay .start-btn:active { background: #1a0a10; border-color: #ff6688; box-shadow: 0 0 30px rgba(255, 68, 102, 0.4); }
 
-    /* Сенсорные кнопки */
     #touch-controls {
-      position: absolute; bottom: 12px; left: 0; right: 0;
-      display: flex; justify-content: space-between; align-items: center;
-      pointer-events: none; z-index: 25; padding: 0 10px;
+      position: absolute;
+      bottom: 12px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 25;
+      padding: 0 10px;
     }
-    .touch-group {
-      display: flex; gap: 8px; align-items: center; pointer-events: auto;
-    }
+    .touch-group { display: flex; gap: 8px; align-items: center; pointer-events: auto; }
     .touch-btn {
       pointer-events: auto;
-      width: 48px; height: 48px; background: rgba(10,20,30,0.8);
-      border: 2px solid #2a4a5a; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 24px; color: #c0d0e0; touch-action: manipulation;
-      user-select: none; -webkit-user-select: none;
-      transition: all 0.3s ease;
+      width: 48px;
+      height: 48px;
+      background: rgba(10, 20, 30, 0.8);
+      border: 2px solid #2a4a5a;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: #c0d0e0;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.2s, border-color 0.2s;
+      cursor: pointer;
     }
-    .touch-btn:active { background: rgba(30,50,70,0.9); border-color: #44eeff; }
+    .touch-btn:active { background: rgba(30, 50, 70, 0.9); border-color: #44eeff; }
+    #touch-jump { background: rgba(20, 40, 30, 0.9); border-color: #44ff66; }
+    #touch-attack { background: rgba(40, 10, 20, 0.9); border-color: #ff4466; }
+    #touch-interact { background: rgba(10, 30, 40, 0.9); border-color: #44eeff; }
 
     #fullscreen-btn {
-      background: rgba(10,20,30,0.8);
-      border: 1px solid #2a4a5a; color: #c0d0e0;
-      font-size: 14px; padding: 4px 8px; border-radius: 2px;
-      cursor: pointer; font-family: 'Courier New', monospace;
+      background: rgba(10, 20, 30, 0.8);
+      border: 1px solid #2a4a5a;
+      color: #c0d0e0;
+      font-size: 14px;
+      padding: 4px 8px;
+      border-radius: 2px;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
       pointer-events: auto;
+      touch-action: manipulation;
     }
 
-    @media (max-width: 600px) {
-      #game-wrapper { width: 100vw; height: 56.25vw; max-height: 100vh; border: 2px solid #1a2a3a; }
-      #controls-hint { font-size: 8px; padding: 2px 8px; white-space: normal; bottom: 4px; }
+    @media (max-width: 768px) {
+      #game-wrapper {
+        width: 100vw;
+        height: 56.25vw;
+        max-height: 100vh;
+        border: 2px solid #1a2a3a;
+      }
+      #controls-hint { font-size: 7px; padding: 1px 6px; bottom: 2px; white-space: normal; }
       #interact-hint { bottom: 32px; font-size: 10px; padding: 2px 8px; }
+      .touch-btn { width: 40px; height: 40px; font-size: 20px; border-radius: 10px; }
+      #touch-controls { padding: 0 6px; bottom: 8px; }
+      .health-bar-bg, .boss-health-bar-bg { width: 80px; height: 12px; }
+      .health-text { font-size: 10px; min-width: 35px; }
+      .boss-health-text { font-size: 8px; min-width: 30px; }
+      .status-text { font-size: 10px; }
+      #ui-overlay { top: 8px; left: 8px; right: 8px; }
+      .health-container, .boss-health-container, .status-bar, .status-bar-floor { padding: 4px 6px; }
+    }
+    @media (max-width: 480px) {
+      .touch-btn { width: 36px; height: 36px; font-size: 18px; border-radius: 8px; }
+      .touch-group { gap: 4px; }
+      #touch-controls { padding: 0 4px; bottom: 6px; }
+      .health-bar-bg, .boss-health-bar-bg { width: 60px; height: 10px; }
+      .health-text { font-size: 8px; min-width: 30px; }
+      .boss-health-text { font-size: 7px; min-width: 25px; }
+      .status-text { font-size: 8px; }
+      #ui-overlay { top: 4px; left: 4px; right: 4px; }
+      #controls-hint { font-size: 5px; padding: 1px 4px; bottom: 1px; }
+      #interact-hint { bottom: 28px; font-size: 8px; padding: 2px 6px; }
+      .heart-icon { font-size: 14px; }
+      .boss-icon { font-size: 12px; }
     }
   </style>
 </head>
@@ -225,12 +398,10 @@
     <button class="start-btn" id="startBtn">▶ ОТКРЫТЬ ГЛАЗА</button>
   </div>
   <div id="touch-controls">
-    <!-- Левая группа: только ходьба -->
     <div class="touch-group" id="touch-group-left">
       <button class="touch-btn" id="touch-left">◀</button>
       <button class="touch-btn" id="touch-right">▶</button>
     </div>
-    <!-- Правая группа: прыжок, атака и взаимодействие -->
     <div class="touch-group" id="touch-group-right">
       <button class="touch-btn" id="touch-jump">▲</button>
       <button class="touch-btn" id="touch-attack">⚔</button>
@@ -241,6 +412,26 @@
 
 <script>
   (function() {
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        const swCode = `
+          self.addEventListener('install', (e) => {
+            self.skipWaiting();
+          });
+          self.addEventListener('activate', (e) => {
+            e.waitUntil(clients.claim());
+          });
+          self.addEventListener('fetch', (e) => {
+            e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+          });
+        `;
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+        navigator.serviceWorker.register(swUrl).catch(() => {});
+      });
+    }
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const floorText = document.getElementById('floorText');
@@ -255,10 +446,12 @@
     const introOverlay = document.getElementById('intro-overlay');
     const startBtn = document.getElementById('startBtn');
     const fullscreenBtn = document.getElementById('fullscreen-btn');
+    const controlsHint = document.getElementById('controls-hint');
     const GAME_W = 960, GAME_H = 540;
-    canvas.width = GAME_W; canvas.height = GAME_H;
+    canvas.width = GAME_W;
+    canvas.height = GAME_H;
+    ctx.imageSmoothingEnabled = false;
 
-    // --- Touch support variables ---
     let touchLeft = false, touchRight = false, touchJump = false, touchAttack = false, touchInteract = false;
 
     const STATE = {
@@ -275,32 +468,28 @@
       voiceTimer: 0, laserGlobalTimer: 0, pillsUsed: 0, lastSavedFloor: 1,
       hasBow: false, bowFound: false, victoryShown: false,
       bossDroppedLoot: false, bowGuard: null, bossHitCount: 0,
-      restartingGame: false
+      restartingGame: false, walkInComplete: false
     };
 
-    function getFloorButtonColors(floor) {
-      const colors = {
-        1: { bg: 'rgba(10,20,30,0.8)', border: '#2a4a5a', hover: 'rgba(30,50,70,0.9)', hoverBorder: '#44eeff' },
-        2: { bg: 'rgba(15,20,25,0.8)', border: '#2a3a4a', hover: 'rgba(30,45,60,0.9)', hoverBorder: '#55ddff' },
-        3: { bg: 'rgba(20,15,20,0.8)', border: '#3a2a3a', hover: 'rgba(50,30,50,0.9)', hoverBorder: '#ff44ff' },
-        4: { bg: 'rgba(25,15,15,0.8)', border: '#3a2a2a', hover: 'rgba(50,30,30,0.9)', hoverBorder: '#ff4444' },
-        5: { bg: 'rgba(10,20,25,0.8)', border: '#1a3a4a', hover: 'rgba(20,40,60,0.9)', hoverBorder: '#44aaff' }
-      };
-      return colors[floor] || colors[1];
-    }
-
-    function updateTouchButtonColors() {
-      const colors = getFloorButtonColors(STATE.floor);
-      const allButtons = document.querySelectorAll('.touch-btn');
-      allButtons.forEach(btn => {
-        btn.style.background = colors.bg;
-        btn.style.borderColor = colors.border;
+    function updateFloorStyling() {
+      const floor = STATE.floor;
+      let primaryColor, secondaryColor, hintBorderColor, hintTextColor;
+      if (floor <= 2) {
+        primaryColor = '#2a4a5a'; secondaryColor = '#3a5a6a'; hintBorderColor = '#ff4466'; hintTextColor = '#e0e8f0';
+      } else if (floor <= 4) {
+        primaryColor = '#4a2a5a'; secondaryColor = '#5a3a6a'; hintBorderColor = '#aa44ff'; hintTextColor = '#e8d0ff';
+      } else {
+        primaryColor = '#5a2a2a'; secondaryColor = '#6a3a3a'; hintBorderColor = '#ff6644'; hintTextColor = '#ffe0d0';
+      }
+      document.querySelectorAll('.touch-btn').forEach(btn => {
+        btn.style.background = `rgba(20, 30, 40, 0.9)`;
+        btn.style.borderColor = secondaryColor;
       });
-      
-      const leftGroup = document.getElementById('touch-group-left');
-      const rightGroup = document.getElementById('touch-group-right');
-      if (leftGroup) leftGroup.style.pointerEvents = 'auto';
-      if (rightGroup) rightGroup.style.pointerEvents = 'auto';
+      if (controlsHint) {
+        controlsHint.style.borderColor = hintBorderColor;
+        controlsHint.style.color = hintTextColor;
+        controlsHint.style.boxShadow = `0 0 8px ${hintBorderColor}60`;
+      }
     }
 
     function updateBossHealthBar() {
@@ -532,7 +721,7 @@
       die() { STATE.gameOver = true; updateHealthBar(); }
       draw(ctx, camX) {
         const sx = this.x - camX, sy = this.y;
-        ctx.save(); ctx.imageSmoothingEnabled = false;
+        ctx.save();
         if (this.hitFlash > 0 && Math.floor(this.hitFlash*20)%2===0) ctx.globalAlpha = 0.5;
         if (STATE.playerInvincible > 0 && Math.floor(STATE.playerInvincible*15)%2===0) ctx.globalAlpha = 0.4;
         ctx.fillStyle = '#f4e8e0'; ctx.fillRect(sx+5, sy+5, 10, 12);
@@ -623,8 +812,10 @@
         this.x = x; this.y = y;
         const sizeMult = floor >= 5 ? 1.6 : floor >= 4 ? 1.4 : floor >= 3 ? 1.2 : 1;
         this.w = 44 * sizeMult; this.h = 52 * sizeMult;
+        // Уменьшено на 2 HP у всех боссов
         const hpMult = floor === 5 ? 5 : floor === 4 ? 3 : floor === 3 ? 2 : 1;
-        this.hp = (8 + floor * 6) * hpMult; this.maxHp = this.hp;
+        this.hp = (8 + floor * 6) * hpMult + 13; 
+        this.maxHp = this.hp;
         this.hitFlash = 0; this.dead = false; this.deathTimer = 0;
         this.shootTimer = 0; this.floor = floor; this.name = name;
         this.colors = ['#5a3a3a', '#3a4a5a', '#3d2a2a', '#2a3a3a', '#1a3a4a'];
@@ -727,7 +918,7 @@
       updateBossHealthBar();
       hideMessage();
       floorText.textContent = 'ЭТАЖ 1';
-      updateTouchButtonColors();
+      updateFloorStyling();
       showMessage('🔄 НАЧАЛО НОВОЙ ИГРЫ', 2);
       setTimeout(() => { STATE.restartingGame = false; }, 500);
     }
@@ -771,7 +962,7 @@
       STATE.laserGlobalTimer = 0;
       floorText.textContent = `ЭТАЖ ${STATE.floor}`;
       updateHealthBar(); updateBossHealthBar(); hideMessage();
-      updateTouchButtonColors();
+      updateFloorStyling();
       if (floorNum === 1 && !STATE.walkInComplete) { STATE.walkInComplete = true; showMessage('🏥 ВЫ ПРОСНУЛИСЬ В БОЛЬНИЦЕ', 3); }
     }
     function updateHealthBar() {
@@ -893,7 +1084,7 @@
             if (!STATE.diaryFoundThisFloor || !STATE.bossDefeated) { if (!STATE.bossDefeated) showMessage('⚠ СНАЧАЛА УБЕЙТЕ БОССА!', 1.5); else if (!STATE.diaryFoundThisFloor) showMessage('📄 НАЙДИТЕ СТРАНИЦУ ДНЕВНИКА!', 1.5); }
             else STATE.victory = true;
           } else if (STATE.floor < STATE.maxFloor) {
-            if (STATE.diaryFoundThisFloor && STATE.bossDefeated) { const nf = STATE.floor+1; loadFloor(nf); floorText.textContent = `ЭТАЖ ${nf}`; showMessage(`🏥 ЭТАЖ ${nf}`, 2); }
+            if (STATE.diaryFoundThisFloor && STATE.bossDefeated) { const nf = STATE.floor+1; loadFloor(nf); floorText.textContent = `ЭТАЖ ${nf}`; updateFloorStyling(); showMessage(`🏥 ЭТАЖ ${nf}`, 2); }
             else if (!STATE.bossDefeated) showMessage('⚠ СНАЧАЛА УБЕЙТЕ БОССА!', 1.5);
             else if (!STATE.diaryFoundThisFloor) showMessage('📄 НАЙДИТЕ СТРАНИЦУ ДНЕВНИКА!', 1.5);
           }
@@ -953,7 +1144,6 @@
       update(dt); draw(ctx); requestAnimationFrame(gameLoop);
     }
 
-    // --- Keyboard & Mouse ---
     window.addEventListener('keydown', e => {
       STATE.keys[e.code] = true;
       if (e.code === 'KeyR') {
@@ -967,6 +1157,7 @@
         if (STATE.victory) { STATE.hasBow = false; STATE.bowFound = false; }
         loadFloor(STATE.lastSavedFloor||1);
         STATE.player.health = STATE.player.maxHealth; updateHealthBar(); updateBossHealthBar(); hideMessage();
+        updateFloorStyling();
         showMessage(`💾 Сохранение загружено. Этаж ${STATE.lastSavedFloor||1}`, 3);
       }
       if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
@@ -976,27 +1167,62 @@
     canvas.addEventListener('mouseup', e => { STATE.mouseDown = false; e.preventDefault(); });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-    // --- Touch events for on-screen buttons ---
     function setupTouchButton(id, pressVar) {
       const btn = document.getElementById(id);
       if (!btn) return;
-      btn.addEventListener('touchstart', (e) => { e.preventDefault(); window[pressVar] = true; });
-      btn.addEventListener('touchend', (e) => { e.preventDefault(); window[pressVar] = false; });
-      btn.addEventListener('touchcancel', (e) => { e.preventDefault(); window[pressVar] = false; });
-      btn.addEventListener('mousedown', (e) => { e.preventDefault(); window[pressVar] = true; });
-      btn.addEventListener('mouseup', (e) => { e.preventDefault(); window[pressVar] = false; });
+      
+      btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window[pressVar] = true;
+      }, {passive: false});
+      
+      btn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window[pressVar] = false;
+      }, {passive: false});
+      
+      btn.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window[pressVar] = false;
+      }, {passive: false});
+      
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window[pressVar] = true;
+      });
+      
+      btn.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window[pressVar] = false;
+      });
+      
+      btn.addEventListener('mouseleave', (e) => {
+        e.preventDefault();
+        window[pressVar] = false;
+      });
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
     }
+    
     setupTouchButton('touch-left', 'touchLeft');
     setupTouchButton('touch-right', 'touchRight');
     setupTouchButton('touch-jump', 'touchJump');
     setupTouchButton('touch-attack', 'touchAttack');
     setupTouchButton('touch-interact', 'touchInteract');
 
-    // --- Fullscreen toggle ---
-    fullscreenBtn.addEventListener('click', () => {
+    fullscreenBtn.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
       const wrapper = document.getElementById('game-wrapper');
       if (!document.fullscreenElement) {
-        if (wrapper.requestFullscreen) wrapper.requestFullscreen();
+        if (wrapper.requestFullscreen) wrapper.requestFullscreen().catch(() => {});
         else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
         else if (wrapper.msRequestFullscreen) wrapper.msRequestFullscreen();
       } else {
@@ -1006,25 +1232,49 @@
       }
     });
 
-    // --- Start button ---
-    startBtn.addEventListener('click', () => {
-      introOverlay.classList.add('hidden'); STATE.gameStarted = true;
-      STATE.collectedPages = new Set(); STATE.foundPages = 0; STATE.pillsUsed = 0;
-      STATE.glitchTimer = 0; STATE.voiceTimer = 0; STATE.laserGlobalTimer = 0;
-      STATE.lastSavedFloor = 1; STATE.hasBow = false; STATE.bowFound = false; STATE.victoryShown = false;
-      STATE.bossDroppedLoot = false; STATE.bossHitCount = 0;
-      loadFloor(1); STATE.player.health = STATE.player.maxHealth; updateHealthBar(); updateBossHealthBar();
-    });
+    startBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); });
+    startBtn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); });
+    
+    function startGame() {
+      introOverlay.classList.add('hidden');
+      STATE.gameStarted = true;
+      STATE.collectedPages = new Set();
+      STATE.foundPages = 0;
+      STATE.pillsUsed = 0;
+      STATE.glitchTimer = 0;
+      STATE.voiceTimer = 0;
+      STATE.laserGlobalTimer = 0;
+      STATE.lastSavedFloor = 1;
+      STATE.hasBow = false;
+      STATE.bowFound = false;
+      STATE.victoryShown = false;
+      STATE.bossDroppedLoot = false;
+      STATE.bossHitCount = 0;
+      loadFloor(1);
+      STATE.player.health = STATE.player.maxHealth;
+      updateHealthBar();
+      updateBossHealthBar();
+      updateFloorStyling();
+    }
 
     function init() {
       STATE.player = new Player(100, GAME_H-100);
-      STATE.lastSavedFloor = 1; STATE.hasBow = false; STATE.bowFound = false; STATE.victoryShown = false;
-      STATE.bossDroppedLoot = false; STATE.bossHitCount = 0;
-      loadFloor(1); STATE.player.health = STATE.player.maxHealth; updateHealthBar(); updateBossHealthBar();
-      STATE.lastTime = performance.now(); requestAnimationFrame(gameLoop);
+      STATE.lastSavedFloor = 1;
+      STATE.hasBow = false;
+      STATE.bowFound = false;
+      STATE.victoryShown = false;
+      STATE.bossDroppedLoot = false;
+      STATE.bossHitCount = 0;
+      loadFloor(1);
+      STATE.player.health = STATE.player.maxHealth;
+      updateHealthBar();
+      updateBossHealthBar();
+      updateFloorStyling();
+      STATE.lastTime = performance.now();
+      requestAnimationFrame(gameLoop);
     }
     init();
-    console.log('⛓ "Карантин" — Финальная версия с адаптивными кнопками!');
+    console.log('⛓ "Карантин" — PWA готово! Боссы ослаблены на 2 HP.');
   })();
 </script>
 </body>
