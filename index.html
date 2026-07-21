@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=yes">
   <title>Карантин. Больница.</title>
   
-  <!-- PWA Meta Tags -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Карантин">
@@ -57,14 +56,11 @@
       box-shadow: 0 0 60px rgba(0, 200, 255, 0.1);
       background: #050510;
       overflow: hidden;
-      image-rendering: auto;
-      object-fit: contain;
     }
     canvas {
       display: block;
       width: 100%;
       height: 100%;
-      image-rendering: auto;
     }
     #ui-overlay {
       position: absolute;
@@ -158,7 +154,7 @@
       text-shadow: 0 0 6px rgba(255, 0, 0, 0.4);
       margin-right: 4px;
     }
-    .status-text { font-size: clamp(10px, 1.6vmin, 15px); color: #8098a8; text-shadow: 0 0 5px rgba(0,0,0,0.8); }
+    .status-text { font-size: clamp(10px, 1.6vmin, 15px); color: #8098a8; }
     #ui-right-group { display: flex; gap: 8px; align-items: flex-start; }
     .status-bar { 
       background: rgba(8, 12, 20, 0.85);
@@ -273,7 +269,6 @@
       transition: all 0.3s;
       letter-spacing: 2px;
       box-shadow: 0 0 15px rgba(255, 68, 102, 0.1);
-      touch-action: manipulation;
     }
     #intro-overlay .start-btn:hover, #intro-overlay .start-btn:active { background: #1a0a10; border-color: #ff6688; box-shadow: 0 0 30px rgba(255, 68, 102, 0.4); }
 
@@ -302,15 +297,12 @@
       justify-content: center;
       font-size: 24px;
       color: #c0d0e0;
-      touch-action: manipulation;
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-tap-highlight-color: transparent;
-      transition: background 0.2s, border-color 0.2s;
       cursor: pointer;
       -webkit-appearance: none;
       appearance: none;
       outline: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.2s, border-color 0.2s;
     }
     .touch-btn:active { background: rgba(30, 50, 70, 0.9); border-color: #44eeff; }
     #touch-jump { background: rgba(20, 40, 30, 0.9); border-color: #44ff66; }
@@ -327,7 +319,6 @@
       cursor: pointer;
       font-family: 'Courier New', monospace;
       pointer-events: auto;
-      touch-action: manipulation;
       -webkit-appearance: none;
       appearance: none;
       outline: none;
@@ -434,19 +425,13 @@
 
 <script>
   (function() {
-    // PWA Service Worker Registration
+    // ============ PWA Service Worker ============
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         const swCode = `
-          self.addEventListener('install', (e) => {
-            self.skipWaiting();
-          });
-          self.addEventListener('activate', (e) => {
-            e.waitUntil(clients.claim());
-          });
-          self.addEventListener('fetch', (e) => {
-            e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-          });
+          self.addEventListener('install', (e) => { self.skipWaiting(); });
+          self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
+          self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
         `;
         const blob = new Blob([swCode], { type: 'application/javascript' });
         const swUrl = URL.createObjectURL(blob);
@@ -454,6 +439,7 @@
       });
     }
 
+    // ============ DOM элементы ============
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const floorText = document.getElementById('floorText');
@@ -469,15 +455,24 @@
     const startBtn = document.getElementById('startBtn');
     const fullscreenBtn = document.getElementById('fullscreen-btn');
     const controlsHint = document.getElementById('controls-hint');
+
+    // ============ Игровые константы ============
     const GAME_W = 960, GAME_H = 540;
     canvas.width = GAME_W;
     canvas.height = GAME_H;
-    ctx.imageSmoothingEnabled = false;
 
-    // Переменные состояния для touch и mouse
-    let touchLeft = false, touchRight = false, touchJump = false, touchAttack = false, touchInteract = false;
-    let isMouseDown = false;
+    // ============ Состояние ввода ============
+    const INPUT = {
+      left: false,
+      right: false,
+      jump: false,
+      attack: false,
+      interact: false,
+      mouseDown: false,
+      keys: {}
+    };
 
+    // ============ Игровое состояние ============
     const STATE = {
       floor: 1, maxFloor: 5, player: null, enemies: [], boss: null,
       particles: [], interactables: [], platforms: [], chainPlatforms: [],
@@ -485,7 +480,7 @@
       cameraX: 0, cameraTargetX: 0, screenShake: 0, shakeX: 0, shakeY: 0,
       messageTimer: 0, playerInvincible: 0, gameOver: false, victory: false,
       diaryFoundThisFloor: false, bossDefeated: false,
-      keys: {}, mouseDown: false, lastTime: 0, dt: 0,
+      lastTime: 0, dt: 0,
       interactCooldown: 0, nearInteractable: null,
       totalDiaryPages: 5, foundPages: 0, gameStarted: false,
       collectedPages: new Set(), glitchTimer: 0, glitchIntensity: 0,
@@ -495,15 +490,194 @@
       restartingGame: false, walkInComplete: false
     };
 
+    // ============ Обработчики ввода ============
+    function setupInputHandlers() {
+      // Клавиатура
+      window.addEventListener('keydown', (e) => {
+        INPUT.keys[e.code] = true;
+        
+        // R для возрождения
+        if (e.code === 'KeyR' && (STATE.gameOver || STATE.victory)) {
+          respawnPlayer();
+        }
+        
+        // E для взаимодействия
+        if (e.code === 'KeyE' && STATE.interactCooldown <= 0 && STATE.player && STATE.player.health > 0 && STATE.nearInteractable) {
+          INPUT.interact = true;
+          setTimeout(() => { INPUT.interact = false; }, 100);
+        }
+        
+        // J для атаки
+        if (e.code === 'KeyJ') {
+          INPUT.attack = true;
+        }
+        
+        // Предотвращаем скролл
+        if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) {
+          e.preventDefault();
+        }
+      });
+      
+      window.addEventListener('keyup', (e) => {
+        INPUT.keys[e.code] = false;
+        if (e.code === 'KeyJ') INPUT.attack = false;
+        if (e.code === 'KeyE') INPUT.interact = false;
+      });
+
+      // Мышь на canvas
+      canvas.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        INPUT.mouseDown = true;
+        INPUT.attack = true;
+        
+        if (STATE.gameOver) {
+          respawnPlayer();
+        }
+      });
+      
+      canvas.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        INPUT.mouseDown = false;
+        INPUT.attack = false;
+      });
+      
+      canvas.addEventListener('mouseleave', () => {
+        INPUT.mouseDown = false;
+        INPUT.attack = false;
+      });
+      
+      canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      // Сенсорный экран на canvas
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        INPUT.mouseDown = true;
+        INPUT.attack = true;
+      }, {passive: false});
+      
+      canvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        INPUT.mouseDown = false;
+        INPUT.attack = false;
+        
+        if (STATE.gameOver) {
+          respawnPlayer();
+        }
+      }, {passive: false});
+      
+      canvas.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        INPUT.mouseDown = false;
+        INPUT.attack = false;
+      }, {passive: false});
+
+      // Универсальная функция для настройки кнопок
+      function setupButton(id, inputProp, isToggle = false) {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        
+        // Touch события
+        btn.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          INPUT[inputProp] = true;
+        }, {passive: false});
+        
+        btn.addEventListener('touchend', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!isToggle) INPUT[inputProp] = false;
+        }, {passive: false});
+        
+        btn.addEventListener('touchcancel', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!isToggle) INPUT[inputProp] = false;
+        }, {passive: false});
+        
+        // Mouse события
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          INPUT[inputProp] = true;
+        });
+        
+        btn.addEventListener('mouseup', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!isToggle) INPUT[inputProp] = false;
+        });
+        
+        btn.addEventListener('mouseleave', (e) => {
+          e.preventDefault();
+          if (!isToggle) INPUT[inputProp] = false;
+        });
+
+        // Предотвращаем дефолтный click
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isToggle) {
+            INPUT[inputProp] = !INPUT[inputProp];
+          }
+        });
+      }
+
+      // Настройка всех игровых кнопок
+      setupButton('touch-left', 'left');
+      setupButton('touch-right', 'right');
+      setupButton('touch-jump', 'jump');
+      setupButton('touch-attack', 'attack');
+      setupButton('touch-interact', 'interact', true); // toggle для взаимодействия
+
+      // Кнопка полного экрана
+      function toggleFullscreen(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const wrapper = document.getElementById('game-wrapper');
+        if (!document.fullscreenElement) {
+          if (wrapper.requestFullscreen) wrapper.requestFullscreen().catch(() => {});
+          else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
+          else if (wrapper.msRequestFullscreen) wrapper.msRequestFullscreen();
+        } else {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+          else if (document.msExitFullscreen) document.msExitFullscreen();
+        }
+      }
+
+      fullscreenBtn.addEventListener('click', toggleFullscreen);
+      fullscreenBtn.addEventListener('touchend', toggleFullscreen);
+
+      // Кнопка старта
+      function handleStart(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        startGame();
+      }
+      
+      startBtn.addEventListener('click', handleStart);
+      startBtn.addEventListener('touchend', handleStart);
+    }
+
+    // ============ Вспомогательные функции ============
     function updateFloorStyling() {
       const floor = STATE.floor;
-      let primaryColor, secondaryColor, hintBorderColor, hintTextColor;
+      let secondaryColor, hintBorderColor, hintTextColor;
       if (floor <= 2) {
-        primaryColor = '#2a4a5a'; secondaryColor = '#3a5a6a'; hintBorderColor = '#ff4466'; hintTextColor = '#e0e8f0';
+        secondaryColor = '#3a5a6a'; hintBorderColor = '#ff4466'; hintTextColor = '#e0e8f0';
       } else if (floor <= 4) {
-        primaryColor = '#4a2a5a'; secondaryColor = '#5a3a6a'; hintBorderColor = '#aa44ff'; hintTextColor = '#e8d0ff';
+        secondaryColor = '#5a3a6a'; hintBorderColor = '#aa44ff'; hintTextColor = '#e8d0ff';
       } else {
-        primaryColor = '#5a2a2a'; secondaryColor = '#6a3a3a'; hintBorderColor = '#ff6644'; hintTextColor = '#ffe0d0';
+        secondaryColor = '#6a3a3a'; hintBorderColor = '#ff6644'; hintTextColor = '#ffe0d0';
       }
       document.querySelectorAll('.touch-btn').forEach(btn => {
         btn.style.background = `rgba(20, 30, 40, 0.9)`;
@@ -522,7 +696,9 @@
         bossHealthBarFill.style.width = (STATE.boss.hp / STATE.boss.maxHp * 100) + '%';
         bossHealthText.textContent = Math.ceil(STATE.boss.hp) + '/' + STATE.boss.maxHp;
         bossNameText.textContent = STATE.boss.name;
-      } else { bossHealthContainer.classList.remove('visible'); }
+      } else { 
+        bossHealthContainer.classList.remove('visible'); 
+      }
     }
 
     function spawnExperienceOrbs(x, y, count) {
@@ -538,20 +714,34 @@
     }
 
     function hasLineOfSight(x1, y1, x2, y2, targetW = 0, targetH = 0) {
-      const checkPoints = [{ x: x2, y: y2 }, { x: x2 + targetW, y: y2 }, { x: x2, y: y2 + targetH }, { x: x2 + targetW, y: y2 + targetH }, { x: x2 + targetW / 2, y: y2 + targetH / 2 }];
+      const checkPoints = [
+        { x: x2, y: y2 }, 
+        { x: x2 + targetW, y: y2 }, 
+        { x: x2, y: y2 + targetH }, 
+        { x: x2 + targetW, y: y2 + targetH }, 
+        { x: x2 + targetW / 2, y: y2 + targetH / 2 }
+      ];
       for (const point of checkPoints) {
         let blocked = false;
         for (const p of STATE.platforms) {
           if (p.type === 'ground') continue;
-          if (lineIntersectsRect(x1, y1, point.x, point.y, p.x, p.y, p.w, p.h)) { blocked = true; break; }
+          if (lineIntersectsRect(x1, y1, point.x, point.y, p.x, p.y, p.w, p.h)) { 
+            blocked = true; 
+            break; 
+          }
         }
         if (!blocked) return true;
       }
       return false;
     }
+
     function lineIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
-      return lineIntersectsLine(x1,y1,x2,y2,rx,ry,rx,ry+rh) || lineIntersectsLine(x1,y1,x2,y2,rx+rw,ry,rx+rw,ry+rh) || lineIntersectsLine(x1,y1,x2,y2,rx,ry,rx+rw,ry) || lineIntersectsLine(x1,y1,x2,y2,rx,ry+rh,rx+rw,ry+rh);
+      return lineIntersectsLine(x1,y1,x2,y2,rx,ry,rx,ry+rh) || 
+             lineIntersectsLine(x1,y1,x2,y2,rx+rw,ry,rx+rw,ry+rh) || 
+             lineIntersectsLine(x1,y1,x2,y2,rx,ry,rx+rw,ry) || 
+             lineIntersectsLine(x1,y1,x2,y2,rx,ry+rh,rx+rw,ry+rh);
     }
+
     function lineIntersectsLine(x1, y1, x2, y2, x3, y3, x4, y4) {
       const denom = (y4-y3)*(x2-x1) - (x4-x3)*(y2-y1);
       if (denom === 0) return false;
@@ -560,6 +750,7 @@
       return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
     }
 
+    // ============ Генерация уровня ============
     function getFloorData(floorNum) {
       const groundY = GAME_H - 50;
       const baseEnemyCount = 3 + floorNum;
@@ -569,6 +760,7 @@
         diaryX: 400 + floorNum * 150, diaryY: groundY - 140,
         staircaseX: 2250, staircaseY: groundY - 120,
       };
+      
       for (let i = 0; i < 12; i++) data.windows.push({ x: 80 + i * 190, y: 0, w: 80, h: GAME_H - groundY });
       for (let i = 0; i < 10; i++) data.lights.push({ x: 100 + i * 230, y: 20, radius: 200, intensity: 1.3 });
 
@@ -582,27 +774,39 @@
         { x: 1850, y: groundY-75, w: 90, h: 14 }, { x: 1950, y: groundY-120, w: 100, h: 14 },
       ];
       platformSets.forEach(p => data.platforms.push({ ...p, type: p.type || 'shelf' }));
+      
       const chainSets = [
         { x: 200, y: groundY-160, w: 70, h: 14 }, { x: 600, y: groundY-180, w: 75, h: 14 },
         { x: 1000, y: groundY-200, w: 65, h: 14 }, { x: 1400, y: groundY-170, w: 80, h: 14 },
         { x: 1800, y: groundY-190, w: 70, h: 14 },
       ];
       data.chainPlatforms = chainSets;
+      
       const walls = [
         { x: 250, y: groundY-60, w: 25, h: 60 }, { x: 550, y: groundY-70, w: 22, h: 70 },
         { x: 850, y: groundY-55, w: 28, h: 55 }, { x: 1150, y: groundY-75, w: 20, h: 75 },
         { x: 1550, y: groundY-65, w: 24, h: 65 }, { x: 1900, y: groundY-70, w: 26, h: 70 },
       ];
       walls.forEach(w => data.platforms.push({ x: w.x, y: w.y, w: w.w, h: w.h, type: 'wall' }));
+      
       const laserCount = 4 + floorNum;
-      for (let i = 0; i < laserCount; i++) data.lasers.push({ x: 150 + i * (2100 / laserCount), y: 20, h: GAME_H - 100, active: true });
+      for (let i = 0; i < laserCount; i++) {
+        data.lasers.push({ x: 150 + i * (2100 / laserCount), y: 20, h: GAME_H - 100, active: true });
+      }
+      
       const pillPositions = [{ x: 250, y: groundY-40 }, { x: 750, y: groundY-40 }, { x: 1250, y: groundY-40 }, { x: 1750, y: groundY-40 }];
-      pillPositions.forEach((pp, i) => data.interactables.push({ ...pp, w: 12, h: 12, type: 'pill', label: '💊', text: 'ТАБЛЕТКИ (+25 HP)', healAmount: 25, id: `pill_${floorNum}_${i}`, collected: false }));
+      pillPositions.forEach((pp, i) => {
+        data.interactables.push({ ...pp, w: 12, h: 12, type: 'pill', label: '💊', text: 'ТАБЛЕТКИ (+25 HP)', healAmount: 25, id: `pill_${floorNum}_${i}`, collected: false });
+      });
+      
       const doorPositions = [
         { x: 350, y: groundY-60, label: 'ПАЛАТА A' }, { x: 750, y: groundY-60, label: 'ПАЛАТА B' },
         { x: 1200, y: groundY-60, label: 'ЛАБОРАТОРИЯ' }, { x: 1600, y: groundY-60, label: 'МОРГ' },
       ];
-      doorPositions.forEach(d => data.interactables.push({ x: d.x, y: d.y, w: 30, h: 60, type: 'door_interact', label: d.label, text: `ОТКРЫТЬ ${d.label}`, opened: false, id: `door_${floorNum}_${d.label}` }));
+      doorPositions.forEach(d => {
+        data.interactables.push({ x: d.x, y: d.y, w: 30, h: 60, type: 'door_interact', label: d.label, text: `ОТКРЫТЬ ${d.label}`, opened: false, id: `door_${floorNum}_${d.label}` });
+      });
+      
       data.interactables.push({ x: 500, y: groundY-75, w: 30, h: 20, type: 'terminal', label: 'TERM', text: 'ДАННЫЕ ПАЦИЕНТОВ ЗАШИФРОВАНЫ', id: 'terminal_1' });
 
       if (floorNum === 5 && !STATE.bowFound) {
@@ -610,20 +814,45 @@
         data.enemies.push({ x: 1920, y: groundY-60, hp: 8, speed: 90, patrolL: 1880, patrolR: 1980, platformRef: { x: 0, y: groundY, w: 2400, h: 50 }, isGrounded: true, isGuard: true });
       }
 
-      const diaryTexts = ['Дневник: "День 1. Пациент ноль. Кашель. Синий туман."', 'Дневник: "Реальность искажается. Кровь на стенах."', 'Дневник: "Санитар стал монстром. Я заперся."', 'Дневник: "Вирус реагирует на звук. Не бегите."', 'Дневник: "Главврач — это я. Остановите меня."'];
+      const diaryTexts = [
+        'Дневник: "День 1. Пациент ноль. Кашель. Синий туман."',
+        'Дневник: "Реальность искажается. Кровь на стенах."',
+        'Дневник: "Санитар стал монстром. Я заперся."',
+        'Дневник: "Вирус реагирует на звук. Не бегите."',
+        'Дневник: "Главврач — это я. Остановите меня."'
+      ];
       if (floorNum <= STATE.totalDiaryPages && !STATE.collectedPages.has(floorNum)) {
         data.interactables.push({ x: data.diaryX, y: data.diaryY, w: 16, h: 16, type: 'diary', label: `СТР.${floorNum}`, text: diaryTexts[floorNum-1], id: `diary_${floorNum}`, collected: false });
       }
+      
       for (let i = 0; i < baseEnemyCount; i++) {
         let ex, ey, platformRef;
-        if (i % 3 === 0) { ex = 200 + i * 300 + Math.random() * 150; ey = groundY - 60; platformRef = { x: 0, y: groundY, w: 2400, h: 50 }; }
-        else if (i % 3 === 1) { const p = platformSets[Math.floor(Math.random() * platformSets.length)]; ex = p.x + p.w/2; ey = p.y - 32; platformRef = p; }
-        else { const c = chainSets[Math.floor(Math.random() * chainSets.length)]; ex = c.x + c.w/2; ey = c.y - 32; platformRef = c; }
-        data.enemies.push({ x: ex, y: ey, hp: 4+floorNum, speed: 70+floorNum*12, patrolL: Math.max(platformRef.x+10, ex-80), patrolR: Math.min(platformRef.x+platformRef.w-10, ex+80), platformRef, isGrounded: i%3===0, isGuard: false });
+        if (i % 3 === 0) { 
+          ex = 200 + i * 300 + Math.random() * 150; 
+          ey = groundY - 60; 
+          platformRef = { x: 0, y: groundY, w: 2400, h: 50 }; 
+        } else if (i % 3 === 1) { 
+          const p = platformSets[Math.floor(Math.random() * platformSets.length)]; 
+          ex = p.x + p.w/2; 
+          ey = p.y - 32; 
+          platformRef = p; 
+        } else { 
+          const c = chainSets[Math.floor(Math.random() * chainSets.length)]; 
+          ex = c.x + c.w/2; 
+          ey = c.y - 32; 
+          platformRef = c; 
+        }
+        data.enemies.push({ 
+          x: ex, y: ey, hp: 4+floorNum, speed: 70+floorNum*12, 
+          patrolL: Math.max(platformRef.x+10, ex-80), 
+          patrolR: Math.min(platformRef.x+platformRef.w-10, ex+80), 
+          platformRef, isGrounded: i%3===0, isGuard: false 
+        });
       }
       return data;
     }
 
+    // ============ Классы игровых объектов ============
     class Player {
       constructor(x, y) {
         this.x = x; this.y = y; this.w = 20; this.h = 30;
@@ -635,52 +864,106 @@
         this.attackRange = 35; this.attackDamage = 1;
         this.hitFlash = 0; this.jumpKeyPressed = false;
       }
+      
       update(dt) {
         if (this.attackCdTimer > 0) this.attackCdTimer -= dt;
-        if (this.attackTimer > 0) { this.attackTimer -= dt; if (this.attackTimer <= 0) this.attacking = false; }
+        if (this.attackTimer > 0) { 
+          this.attackTimer -= dt; 
+          if (this.attackTimer <= 0) this.attacking = false; 
+        }
         if (this.hitFlash > 0) this.hitFlash -= dt;
         if (STATE.playerInvincible > 0) STATE.playerInvincible -= dt;
-        const moveDir = (STATE.keys['ArrowLeft']||STATE.keys['KeyA']||touchLeft ? -1 : 0) + (STATE.keys['ArrowRight']||STATE.keys['KeyD']||touchRight ? 1 : 0);
+        
+        const moveDir = (INPUT.keys['ArrowLeft'] || INPUT.keys['KeyA'] || INPUT.left ? -1 : 0) + 
+                       (INPUT.keys['ArrowRight'] || INPUT.keys['KeyD'] || INPUT.right ? 1 : 0);
         this.vx = Math.max(-1, Math.min(1, moveDir)) * this.speed;
         if (moveDir !== 0) this.facingRight = moveDir > 0;
-        const jumpKey = STATE.keys['Space'] || STATE.keys['KeyW'] || STATE.keys['ArrowUp'] || touchJump;
-        if (jumpKey && this.onGround && !this.jumpKeyPressed) { this.vy = this.jumpForce; this.onGround = false; this.jumpKeyPressed = true; }
+        
+        const jumpKey = INPUT.keys['Space'] || INPUT.keys['KeyW'] || INPUT.keys['ArrowUp'] || INPUT.jump;
+        if (jumpKey && this.onGround && !this.jumpKeyPressed) { 
+          this.vy = this.jumpForce; 
+          this.onGround = false; 
+          this.jumpKeyPressed = true; 
+        }
         if (!jumpKey) this.jumpKeyPressed = false;
-        this.vy += this.gravity * dt; this.x += this.vx * dt; this.y += this.vy * dt; this.onGround = false;
+        
+        this.vy += this.gravity * dt; 
+        this.x += this.vx * dt; 
+        this.y += this.vy * dt; 
+        this.onGround = false;
+        
         const allPlatforms = [...STATE.platforms, ...STATE.chainPlatforms];
         for (const p of allPlatforms) {
           if (this.x+this.w > p.x && this.x < p.x+p.w && this.y+this.h > p.y && this.y < p.y+p.h) {
             const ol=this.x+this.w-p.x, or=p.x+p.w-this.x, ot=this.y+this.h-p.y, ob=p.y+p.h-this.y;
-            if (Math.min(ol,or) < Math.min(ot,ob)) { if (ol < or) this.x = p.x-this.w; else this.x = p.x+p.w; this.vx = 0; }
-            else { if (ot < ob) { this.y = p.y-this.h; this.vy = 0; this.onGround = true; } else if (this.vy < 0) { this.y = p.y+p.h; this.vy = 0; } }
+            if (Math.min(ol,or) < Math.min(ot,ob)) { 
+              if (ol < or) this.x = p.x-this.w; 
+              else this.x = p.x+p.w; 
+              this.vx = 0; 
+            } else { 
+              if (ot < ob) { 
+                this.y = p.y-this.h; 
+                this.vy = 0; 
+                this.onGround = true; 
+              } else if (this.vy < 0) { 
+                this.y = p.y+p.h; 
+                this.vy = 0; 
+              } 
+            }
           }
         }
+        
         this.x = Math.max(10, Math.min(2370, this.x));
         if (this.y > GAME_H + 100) { this.health = 0; this.die(); }
-        // Атака через клавиши, мышь или touch кнопку
-        if ((STATE.keys['KeyJ'] || STATE.mouseDown || touchAttack) && this.attackCdTimer <= 0 && !this.attacking) this.attack();
+        
+        if ((INPUT.keys['KeyJ'] || INPUT.mouseDown || INPUT.attack) && this.attackCdTimer <= 0 && !this.attacking) {
+          this.attack();
+        }
         if (this.attacking) this.checkAttackHit();
+        
         if (STATE.interactCooldown > 0) STATE.interactCooldown -= dt;
-        // Взаимодействие через клавишу E или touch кнопку
-        if ((STATE.keys['KeyE'] || touchInteract) && STATE.interactCooldown <= 0) { STATE.interactCooldown = 0.5; this.interact(); }
+        if ((INPUT.keys['KeyE'] || INPUT.interact) && STATE.interactCooldown <= 0 && STATE.nearInteractable) { 
+          STATE.interactCooldown = 0.5; 
+          this.interact();
+          INPUT.interact = false;
+        }
+        
         this.checkNearInteractables();
-        if (this.health > 0) for (const laser of STATE.lasers) { if (!laser.active) continue; if (this.x+this.w > laser.x+2 && this.x < laser.x+6 && this.y+this.h > laser.y && this.y < laser.y+laser.h) this.takeDamage(15); }
+        
+        if (this.health > 0) {
+          for (const laser of STATE.lasers) { 
+            if (!laser.active) continue; 
+            if (this.x+this.w > laser.x+2 && this.x < laser.x+6 && this.y+this.h > laser.y && this.y < laser.y+laser.h) {
+              this.takeDamage(15); 
+            }
+          }
+        }
       }
+      
       attack() {
-        this.attacking = true; this.attackTimer = this.attackDuration; this.attackCdTimer = this.attackCooldownTime;
+        this.attacking = true; 
+        this.attackTimer = this.attackDuration; 
+        this.attackCdTimer = this.attackCooldownTime;
         if (STATE.hasBow) { this.attackRange = 150; this.attackDamage = 3; }
         for (let i = 0; i < (STATE.hasBow ? 3 : 6); i++) {
           spawnParticle((this.facingRight ? this.x+this.w : this.x), this.y+this.h/2-8+Math.random()*16, {
-            vx: (this.facingRight?1:-1)*(STATE.hasBow?300:60+Math.random()*120), vy: STATE.hasBow?0:-30+Math.random()*60,
-            life: STATE.hasBow?0.4:0.2, color: STATE.hasBow ? '#ffaa00' : '#66eeff', size: STATE.hasBow ? 6 : 2+Math.random()*3,
+            vx: (this.facingRight?1:-1)*(STATE.hasBow?300:60+Math.random()*120), 
+            vy: STATE.hasBow?0:-30+Math.random()*60,
+            life: STATE.hasBow?0.4:0.2, 
+            color: STATE.hasBow ? '#ffaa00' : '#66eeff', 
+            size: STATE.hasBow ? 6 : 2+Math.random()*3,
           });
         }
       }
+      
       checkAttackHit() {
         const range = STATE.hasBow ? 150 : 35;
         const attackX = this.facingRight ? this.x+this.w : this.x-range;
-        const attackY = this.y; const attackW = range; const attackH = this.h;
+        const attackY = this.y; 
+        const attackW = range; 
+        const attackH = this.h;
         const acx = this.x+this.w/2, acy = this.y+this.h/2;
+        
         for (const enemy of STATE.enemies) {
           if (enemy.hp <= 0) continue;
           if (attackX < enemy.x+enemy.w && attackX+attackW > enemy.x && attackY < enemy.y+enemy.h && attackY+attackH > enemy.y) {
@@ -690,6 +973,7 @@
             }
           }
         }
+        
         if (STATE.boss && STATE.boss.hp > 0) {
           const b = STATE.boss;
           if (attackX < b.x+b.w && attackX+attackW > b.x && attackY < b.y+b.h && attackY+attackH > b.y) {
@@ -707,44 +991,70 @@
           }
         }
       }
+      
       interact() {
         if (!STATE.nearInteractable) return;
         const item = STATE.nearInteractable;
         if (item.type === 'pill' && !item.collected) {
-          item.collected = true; this.health = Math.min(this.maxHealth, this.health + item.healAmount);
-          STATE.pillsUsed++; showMessage(`💊 +${item.healAmount} HP!`, 2);
-          updateHealthBar(); STATE.interactables = STATE.interactables.filter(i => i !== item);
+          item.collected = true; 
+          this.health = Math.min(this.maxHealth, this.health + item.healAmount);
+          STATE.pillsUsed++; 
+          showMessage(`💊 +${item.healAmount} HP!`, 2);
+          updateHealthBar(); 
+          STATE.interactables = STATE.interactables.filter(i => i !== item);
         } else if (item.type === 'door_interact' && !item.opened) {
-          item.opened = true; showMessage('🚪 ' + item.text, 2); item.w = 0; item.h = 0;
+          item.opened = true; 
+          showMessage('🚪 ' + item.text, 2); 
+          item.w = 0; 
+          item.h = 0;
         } else if (item.type === 'bow' && !item.collected) {
-          item.collected = true; STATE.hasBow = true; STATE.bowFound = true;
+          item.collected = true; 
+          STATE.hasBow = true; 
+          STATE.bowFound = true;
           showMessage('🏹 ' + item.text, 3);
           STATE.interactables = STATE.interactables.filter(i => i !== item);
         } else if (item.type === 'diary' && !item.collected) {
-          item.collected = true; STATE.collectedPages.add(STATE.floor); STATE.foundPages++;
+          item.collected = true; 
+          STATE.collectedPages.add(STATE.floor); 
+          STATE.foundPages++;
           STATE.lastSavedFloor = STATE.floor;
           showMessage('📄 ' + item.text + '\n\n💾 Сохранение...', 4);
           this.health = Math.min(this.maxHealth, this.health + 30);
-          STATE.glitchTimer = 1.0; STATE.glitchIntensity = 0.8;
-          STATE.diaryFoundThisFloor = true; updateHealthBar();
+          STATE.glitchTimer = 1.0; 
+          STATE.glitchIntensity = 0.8;
+          STATE.diaryFoundThisFloor = true; 
+          updateHealthBar();
           STATE.interactables = STATE.interactables.filter(i => i !== item);
-        } else if (item.type === 'terminal') { showMessage('💻 ' + item.text, 2.5); }
+        } else if (item.type === 'terminal') { 
+          showMessage('💻 ' + item.text, 2.5); 
+        }
       }
+      
       checkNearInteractables() {
         STATE.nearInteractable = null;
         for (const item of STATE.interactables) {
           if (item.collected || (item.type==='door_interact' && item.opened)) continue;
-          if (this.x+this.w > item.x-10 && this.x < item.x+(item.w||30)+10 && this.y+this.h > item.y-10 && this.y < item.y+(item.h||60)+10) { STATE.nearInteractable = item; break; }
+          if (this.x+this.w > item.x-10 && this.x < item.x+(item.w||30)+10 && 
+              this.y+this.h > item.y-10 && this.y < item.y+(item.h||60)+10) { 
+            STATE.nearInteractable = item; 
+            break; 
+          }
         }
         interactHint.classList.toggle('visible', STATE.nearInteractable !== null);
       }
+      
       takeDamage(amount) {
         if (STATE.playerInvincible > 0) return;
-        this.health -= amount; this.hitFlash = 0.2; STATE.playerInvincible = 0.5;
-        STATE.screenShake = Math.max(STATE.screenShake, 8); updateHealthBar();
+        this.health -= amount; 
+        this.hitFlash = 0.2; 
+        STATE.playerInvincible = 0.5;
+        STATE.screenShake = Math.max(STATE.screenShake, 8); 
+        updateHealthBar();
         if (this.health <= 0) { this.health = 0; this.die(); }
       }
+      
       die() { STATE.gameOver = true; updateHealthBar(); }
+      
       draw(ctx, camX) {
         const sx = this.x - camX, sy = this.y;
         ctx.save();
@@ -759,7 +1069,10 @@
         ctx.fillStyle = '#e8d8d0'; ctx.fillRect(sx+1, sy+20, 4, 4); ctx.fillRect(sx+15, sy+20, 4, 4);
         ctx.fillStyle = '#7a4a4a'; ctx.fillRect(sx+5, sy+25, 4, 5); ctx.fillRect(sx+11, sy+25, 4, 5);
         ctx.fillStyle = '#222'; ctx.fillRect(sx+4, sy+28, 6, 2); ctx.fillRect(sx+10, sy+28, 6, 2);
-        if (STATE.hasBow) { ctx.fillStyle = '#ffaa00'; ctx.fillRect(sx-2, sy-10, 24, 6); ctx.fillStyle = '#ff6600'; ctx.fillRect(sx+8, sy-12, 4, 4); }
+        if (STATE.hasBow) { 
+          ctx.fillStyle = '#ffaa00'; ctx.fillRect(sx-2, sy-10, 24, 6); 
+          ctx.fillStyle = '#ff6600'; ctx.fillRect(sx+8, sy-12, 4, 4); 
+        }
         ctx.restore();
       }
     }
@@ -776,6 +1089,7 @@
         this.vx = 0; this.vy = 0; this.gravity = 850; this.onGround = false;
         this.baseY = y;
       }
+      
       update(dt) {
         if (this.dead) { this.deathTimer -= dt; return; }
         if (this.hitFlash > 0) this.hitFlash -= dt;
@@ -792,6 +1106,7 @@
         if (this.x >= this.patrolR) this.dir = -1;
         this.applyPhysics(dt);
       }
+      
       applyPhysics(dt) {
         if (this.isGrounded) this.vy += this.gravity * dt;
         this.x += this.vx * dt;
@@ -815,7 +1130,13 @@
           if (this.y > GAME_H+100) { this.dead = true; this.deathTimer = 0.3; }
         } else { this.y = this.baseY; this.vy = 0; this.onGround = true; }
       }
-      takeDamage(amount) { this.hp -= amount; this.hitFlash = 0.2; if (this.hp <= 0) { this.dead = true; this.deathTimer = 0.5; } }
+      
+      takeDamage(amount) { 
+        this.hp -= amount; 
+        this.hitFlash = 0.2; 
+        if (this.hp <= 0) { this.dead = true; this.deathTimer = 0.5; } 
+      }
+      
       draw(ctx, camX) {
         if (this.dead && this.deathTimer <= 0) return;
         const sx = this.x-camX, sy = this.y;
@@ -828,7 +1149,10 @@
         ctx.fillRect(sx+5, sy+8, 4, 4); ctx.fillRect(sx+this.w-9, sy+8, 4, 4);
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#1a2228'; ctx.fillRect(sx+8, sy+16, this.w-16, 4);
-        if (this.isGuard) { ctx.fillStyle = '#ffaa00'; ctx.font = '8px "Courier New"'; ctx.textAlign = 'center'; ctx.fillText('👁', sx+this.w/2, sy-5); }
+        if (this.isGuard) { 
+          ctx.fillStyle = '#ffaa00'; ctx.font = '8px "Courier New"'; ctx.textAlign = 'center'; 
+          ctx.fillText('👁', sx+this.w/2, sy-5); 
+        }
         ctx.restore();
       }
     }
@@ -850,6 +1174,7 @@
         this.lootDropped = false;
         this.chaseSpeed = 140 + floor * 18;
       }
+      
       update(dt) {
         if (this.dead) {
           this.deathTimer -= dt;
@@ -864,11 +1189,7 @@
             updateBossHealthBar();
             if (this.floor === 5) {
               STATE.victory = true;
-              setTimeout(() => {
-                if (STATE.victory) {
-                  restartGame();
-                }
-              }, 3000);
+              setTimeout(() => { if (STATE.victory) restartGame(); }, 3000);
             }
           }
           return;
@@ -894,11 +1215,22 @@
           const bulletCount = this.floor >= 5 ? 8 : 5;
           for (let i = 0; i < bulletCount; i++) {
             const angle = Math.PI*2 / bulletCount * i + Math.random()*0.3;
-            spawnParticle(this.x+this.w/2, this.y+this.h/2, { vx: Math.cos(angle)*140, vy: Math.sin(angle)*140, life: 0.8, color: this.floor%2===0?'#ff3366':'#33ff66', size: 5, damagePlayer: true, damage: 8+this.floor });
+            spawnParticle(this.x+this.w/2, this.y+this.h/2, { 
+              vx: Math.cos(angle)*140, vy: Math.sin(angle)*140, life: 0.8, 
+              color: this.floor%2===0?'#ff3366':'#33ff66', size: 5, 
+              damagePlayer: true, damage: 8+this.floor 
+            });
           }
         }
       }
-      takeDamage(amount) { this.hp -= amount; this.hitFlash = 0.2; updateBossHealthBar(); if (this.hp <= 0) { this.dead = true; this.deathTimer = 0.3; } }
+      
+      takeDamage(amount) { 
+        this.hp -= amount; 
+        this.hitFlash = 0.2; 
+        updateBossHealthBar(); 
+        if (this.hp <= 0) { this.dead = true; this.deathTimer = 0.3; } 
+      }
+      
       draw(ctx, camX) {
         if (this.dead && this.deathTimer <= 0) return;
         const sx = this.x-camX, sy = this.y;
@@ -914,6 +1246,7 @@
       }
     }
 
+    // ============ Игровые функции ============
     function restartGame() {
       STATE.collectedPages = new Set();
       STATE.foundPages = 0;
@@ -948,227 +1281,6 @@
       setTimeout(() => { STATE.restartingGame = false; }, 500);
     }
 
-    function spawnParticle(x, y, opts) {
-      STATE.particles.push({ x, y, vx: opts.vx||0, vy: opts.vy||0, life: opts.life||0.5, maxLife: opts.life||0.5, color: opts.color||'#fff', size: opts.size||2, damagePlayer: opts.damagePlayer||false, damage: opts.damage||0, isExpOrb: opts.isExpOrb||false, healAmount: opts.healAmount||0 });
-    }
-    function updateParticles(dt) {
-      for (let i = STATE.particles.length-1; i >= 0; i--) {
-        const p = STATE.particles[i]; p.life -= dt;
-        if (p.life <= 0) { STATE.particles.splice(i,1); continue; }
-        p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 280*dt;
-        if (p.isExpOrb && STATE.player && STATE.player.health > 0 && STATE.player.health < STATE.player.maxHealth) {
-          const dx = (STATE.player.x+STATE.player.w/2)-p.x, dy = (STATE.player.y+STATE.player.h/2)-p.y, dist = Math.hypot(dx, dy);
-          if (dist < 30) {
-            STATE.player.health = Math.min(STATE.player.maxHealth, STATE.player.health + p.healAmount);
-            updateHealthBar(); p.life = 0;
-            for (let j=0;j<3;j++) STATE.particles.push({ x:p.x, y:p.y, vx:(Math.random()-0.5)*40, vy:-20-Math.random()*30, life:0.3, maxLife:0.3, color:'#ffff88', size:2 });
-          } else if (dist < 80) { p.vx += (dx/dist)*200*dt; p.vy += (dy/dist)*200*dt; }
-        }
-        if (p.damagePlayer && STATE.player && STATE.player.health > 0 && p.x > STATE.player.x && p.x < STATE.player.x+STATE.player.w && p.y > STATE.player.y && p.y < STATE.player.y+STATE.player.h) { STATE.player.takeDamage(p.damage); p.life = 0; }
-      }
-    }
-    function loadFloor(floorNum) {
-      const data = getFloorData(floorNum);
-      STATE.floor = floorNum; STATE.platforms = data.platforms;
-      STATE.chainPlatforms = data.chainPlatforms || []; STATE.enemies = [];
-      STATE.boss = null; STATE.particles = [];
-      STATE.interactables = data.interactables || [];
-      STATE.lights = data.lights || []; STATE.lasers = data.lasers || [];
-      STATE.windows = data.windows || [];
-      STATE.diaryFoundThisFloor = false; STATE.bossDefeated = false;
-      STATE.bossDroppedLoot = false; STATE.bossHitCount = 0;
-      STATE.staircase = { x: data.staircaseX, y: data.staircaseY };
-      data.enemies.forEach(ed => STATE.enemies.push(new InfectedZombie(ed.x, ed.y, ed.hp, ed.speed, ed.patrolL, ed.patrolR, ed.platformRef, ed.isGrounded, ed.isGuard)));
-      const bossNames = ['Санитар', 'Медсестра', 'Инфекционист', 'Хирург', 'Главврач'];
-      if (floorNum <= 5) STATE.boss = new Boss(2100, GAME_H-120, floorNum, bossNames[floorNum-1]);
-      if (!STATE.player) STATE.player = new Player(100, GAME_H-100);
-      else { STATE.player.x = 100; STATE.player.y = GAME_H-100; STATE.player.health = STATE.player.maxHealth; STATE.player.vx = 0; STATE.player.vy = 0; STATE.player.attackRange = 35; STATE.player.attackDamage = 1; }
-      STATE.cameraX = 0; STATE.cameraTargetX = 0; STATE.gameOver = false; STATE.victory = false;
-      STATE.laserGlobalTimer = 0;
-      floorText.textContent = `ЭТАЖ ${STATE.floor}`;
-      updateHealthBar(); updateBossHealthBar(); hideMessage();
-      updateFloorStyling();
-      if (floorNum === 1 && !STATE.walkInComplete) { STATE.walkInComplete = true; showMessage('🏥 ВЫ ПРОСНУЛИСЬ В БОЛЬНИЦЕ', 3); }
-    }
-    function updateHealthBar() {
-      if (!STATE.player) return;
-      const ratio = STATE.player.health / STATE.player.maxHealth;
-      healthBarFill.style.width = (ratio*100)+'%';
-      healthText.textContent = Math.floor(STATE.player.health)+'/'+STATE.player.maxHealth;
-      healthBarFill.style.background = ratio < 0.3 ? 'linear-gradient(90deg, #ff0022, #ff2244)' : ratio < 0.6 ? 'linear-gradient(90deg, #ff4422, #ff6644)' : 'linear-gradient(90deg, #ff2244, #ff4466)';
-    }
-    function showMessage(text, duration=2.5) { STATE.messageTimer = duration; messageCenter.innerHTML = text.replace(/\n/g, '<br>'); messageCenter.classList.add('visible'); }
-    function hideMessage() { messageCenter.classList.remove('visible'); STATE.messageTimer = 0; }
-
-    function getFloorColors(floor) {
-      if (floor <= 2) return { bg1: '#0a0a14', bg2: '#0e121c', bg3: '#121a22', win1: '#111a22', win2: 'rgba(40,60,90,0.15)' };
-      if (floor <= 4) return { bg1: '#0f0a14', bg2: '#120e1a', bg3: '#150f1c', win1: '#1a1122', win2: 'rgba(60,30,90,0.2)' };
-      return { bg1: '#140a0a', bg2: '#1c0e0e', bg3: '#1a0f0f', win1: '#221111', win2: 'rgba(90,20,20,0.25)' };
-    }
-
-    function drawBackground(ctx) {
-      const colors = getFloorColors(STATE.floor);
-      const grad = ctx.createLinearGradient(0,0,0,GAME_H);
-      grad.addColorStop(0,colors.bg1); grad.addColorStop(0.5,colors.bg2); grad.addColorStop(1,colors.bg3);
-      ctx.fillStyle = grad; ctx.fillRect(0,0,GAME_W,GAME_H);
-    }
-    function drawWindows(ctx, camX) {
-      if (!STATE.windows) return;
-      const colors = getFloorColors(STATE.floor);
-      STATE.windows.forEach(w => {
-        const sx = w.x-camX; if (sx<-100||sx>GAME_W+100) return;
-        ctx.fillStyle=colors.win1; ctx.fillRect(sx,w.y,w.w,w.h);
-        ctx.fillStyle=colors.win2; ctx.fillRect(sx+4,w.y+4,w.w-8,w.h-8);
-        ctx.strokeStyle='#3a4a5a'; ctx.lineWidth=2; ctx.strokeRect(sx,w.y,w.w,w.h);
-      });
-    }
-    function drawChainPlatforms(ctx, camX) {
-      STATE.chainPlatforms.forEach(p => {
-        const sx = p.x-camX; if (sx<-80||sx>GAME_W+80) return;
-        ctx.strokeStyle='#4a5a6a'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
-        ctx.beginPath(); ctx.moveTo(sx+10,0); ctx.lineTo(sx+10,p.y);
-        ctx.moveTo(sx+p.w-10,0); ctx.lineTo(sx+p.w-10,p.y); ctx.stroke(); ctx.setLineDash([]);
-        ctx.fillStyle='#1a1a24'; ctx.fillRect(sx,p.y,p.w,p.h);
-        ctx.fillStyle='#3a4a5a'; ctx.fillRect(sx+2,p.y+2,p.w-4,p.h-4);
-      });
-    }
-    function drawLasers(ctx, camX) {
-      const active = STATE.laserGlobalTimer % 2.5 < 1.5;
-      STATE.lasers.forEach(l => l.active = active);
-      if (!active) return;
-      STATE.lasers.forEach(l => {
-        const sx = l.x-camX; if (sx<-20||sx>GAME_W+20) return;
-        ctx.globalAlpha=0.8; ctx.fillStyle='#44eeff'; ctx.shadowColor='#00ccff'; ctx.shadowBlur=30;
-        ctx.fillRect(sx+2,l.y,4,l.h); ctx.shadowBlur=0;
-        ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect(sx+1,l.y,6,l.h); ctx.globalAlpha=1;
-      });
-    }
-    function drawInteractables(ctx, camX) {
-      STATE.interactables.forEach(item => {
-        if (item.collected || (item.type==='door_interact'&&item.opened)) return;
-        const sx = item.x-camX; if (sx<-40||sx>GAME_W+40) return;
-        if (item.type === 'terminal') {
-          ctx.fillStyle='#1a1a24'; ctx.fillRect(sx-4,item.y-4,38,28);
-          ctx.fillStyle='#2a3a4a'; ctx.fillRect(sx-2,item.y-2,34,24);
-          ctx.fillStyle='#44eeff'; ctx.font='8px "Courier New"'; ctx.textAlign='center'; ctx.fillText('[TERM]',sx+15,item.y+16);
-        } else if (item.type === 'diary') {
-          ctx.fillStyle='#2a1a10'; ctx.fillRect(sx,item.y,16,16);
-          ctx.fillStyle='#4a3a20'; ctx.fillRect(sx+2,item.y+2,12,12);
-          ctx.fillStyle='#ffaa00'; ctx.font='6px "Courier New"'; ctx.textAlign='center'; ctx.fillText('📄',sx+8,item.y+12);
-        } else if (item.type === 'bow') {
-          ctx.fillStyle='#ffaa00'; ctx.shadowColor='#ffcc00'; ctx.shadowBlur=20;
-          ctx.fillRect(sx,item.y,20,12); ctx.shadowBlur=0;
-          ctx.fillStyle='#fff'; ctx.font='8px "Courier New"'; ctx.textAlign='center'; ctx.fillText('🏹',sx+10,item.y+10);
-        } else if (item.type === 'pill') {
-          ctx.fillStyle='#ff4466'; ctx.shadowColor='#ff6688'; ctx.shadowBlur=10;
-          ctx.fillRect(sx,item.y,12,8); ctx.fillStyle='#fff'; ctx.fillRect(sx+5,item.y+2,2,4); ctx.shadowBlur=0;
-        } else if (item.type === 'door_interact') {
-          ctx.fillStyle='#2a2a2a'; ctx.fillRect(sx-2,item.y-2,34,64);
-          ctx.fillStyle='#4a3a2a'; ctx.fillRect(sx,item.y,30,60);
-          ctx.fillStyle='#aa8840'; ctx.fillRect(sx+22,item.y+28,6,6);
-          ctx.fillStyle='#fff'; ctx.font='5px "Courier New"'; ctx.textAlign='center'; ctx.fillText(item.label,sx+15,item.y-8);
-        }
-      });
-      if (STATE.staircase) {
-        const sx = STATE.staircase.x-camX;
-        if (sx>-60 && sx<GAME_W+60) {
-          const canGo = STATE.diaryFoundThisFloor && STATE.bossDefeated;
-          ctx.fillStyle='#1a1a24'; ctx.fillRect(sx,STATE.staircase.y-60,40,60);
-          ctx.fillStyle=canGo?'#2a4a3a':'#4a2a2a'; ctx.fillRect(sx+4,STATE.staircase.y-56,32,56);
-          ctx.fillStyle=canGo?'#44eeff':'#ff2244'; ctx.font='6px "Courier New"'; ctx.textAlign='center';
-          if (!STATE.bossDefeated && STATE.diaryFoundThisFloor) ctx.fillText('⚠ УБЕЙТЕ БОССА',sx+20,STATE.staircase.y-65);
-          else if (!STATE.diaryFoundThisFloor && STATE.bossDefeated) ctx.fillText('📄 НАЙДИТЕ ДНЕВНИК',sx+20,STATE.staircase.y-65);
-          else if (!STATE.diaryFoundThisFloor && !STATE.bossDefeated) ctx.fillText('🔒 ЗАКРЫТО',sx+20,STATE.staircase.y-65);
-          else ctx.fillText('▶ ВЫХОД',sx+20,STATE.staircase.y-65);
-        }
-      }
-    }
-
-    function update(dt) {
-      if (!STATE.gameStarted) return;
-      STATE.laserGlobalTimer += dt;
-      if (STATE.victory && !STATE.victoryShown) { STATE.victoryShown = true; showMessage('📓 ДНЕВНИК ДОКТОРА НАЙДЕН\n🦠 ВИРУС НЕЙТРАЛИЗОВАН\n\n🔄 Новая игра через 3 сек...', 3); }
-      if (STATE.gameOver || STATE.victory) { updateParticles(dt); STATE.screenShake *= 0.85; return; }
-      STATE.voiceTimer -= dt;
-      if (STATE.voiceTimer <= 0) { STATE.voiceTimer = 8+Math.random()*10; showMessage('...'+['Выходи...','Помоги нам...','Найди правду...','Не верь глазам...'][Math.floor(Math.random()*4)], 2); }
-      if (STATE.glitchTimer > 0) { STATE.glitchTimer -= dt; STATE.glitchIntensity = Math.max(0, STATE.glitchIntensity-dt*1.5); }
-      if (STATE.player && STATE.player.health > 0) STATE.player.update(dt);
-      for (let i = STATE.enemies.length-1; i >= 0; i--) {
-        const e = STATE.enemies[i]; e.update(dt);
-        if (!e.dead && STATE.player && STATE.player.health > 0 && e.x < STATE.player.x+STATE.player.w && e.x+e.w > STATE.player.x && e.y < STATE.player.y+STATE.player.h && e.y+e.h > STATE.player.y) { STATE.player.takeDamage(12+STATE.floor); e.hitFlash = 0.3; }
-        if (e.dead && e.deathTimer <= 0) STATE.enemies.splice(i,1);
-      }
-      if (STATE.boss) STATE.boss.update(dt);
-      updateParticles(dt);
-      STATE.screenShake *= 0.85; STATE.shakeX = (Math.random()-0.5)*STATE.screenShake*2; STATE.shakeY = (Math.random()-0.5)*STATE.screenShake*2;
-      if (STATE.player) { STATE.cameraTargetX = STATE.player.x-GAME_W/2; STATE.cameraTargetX = Math.max(0, Math.min(2400-GAME_W, STATE.cameraTargetX)); STATE.cameraX += (STATE.cameraTargetX-STATE.cameraX)*dt*6; }
-      if (STATE.staircase && STATE.player && STATE.player.health > 0) {
-        const s = STATE.staircase, p = STATE.player;
-        if (p.x+p.w > s.x-10 && p.x < s.x+38 && p.y+p.h > s.y-55 && p.y < s.y+10) {
-          if (STATE.floor === 5) {
-            if (!STATE.diaryFoundThisFloor || !STATE.bossDefeated) { if (!STATE.bossDefeated) showMessage('⚠ СНАЧАЛА УБЕЙТЕ БОССА!', 1.5); else if (!STATE.diaryFoundThisFloor) showMessage('📄 НАЙДИТЕ СТРАНИЦУ ДНЕВНИКА!', 1.5); }
-            else STATE.victory = true;
-          } else if (STATE.floor < STATE.maxFloor) {
-            if (STATE.diaryFoundThisFloor && STATE.bossDefeated) { const nf = STATE.floor+1; loadFloor(nf); floorText.textContent = `ЭТАЖ ${nf}`; updateFloorStyling(); showMessage(`🏥 ЭТАЖ ${nf}`, 2); }
-            else if (!STATE.bossDefeated) showMessage('⚠ СНАЧАЛА УБЕЙТЕ БОССА!', 1.5);
-            else if (!STATE.diaryFoundThisFloor) showMessage('📄 НАЙДИТЕ СТРАНИЦУ ДНЕВНИКА!', 1.5);
-          }
-        }
-      }
-      if (STATE.messageTimer > 0) { STATE.messageTimer -= dt; if (STATE.messageTimer <= 0) hideMessage(); }
-    }
-
-    function draw(ctx) {
-      ctx.clearRect(0,0,GAME_W,GAME_H);
-      const camX = STATE.cameraX;
-      ctx.save(); if (STATE.screenShake>0.5) ctx.translate(STATE.shakeX||0, STATE.shakeY||0);
-      drawBackground(ctx); drawWindows(ctx, camX); drawChainPlatforms(ctx, camX); drawLasers(ctx, camX);
-      STATE.platforms.forEach(p => {
-        const sx = p.x-camX; if (sx>GAME_W+50||sx+p.w<-50) return;
-        ctx.fillStyle='#1a1a24'; ctx.fillRect(sx,p.y,p.w,p.h);
-        ctx.fillStyle=p.type==='wall'?(STATE.floor>=3?'#3a2a3a':'#3a2a2a'):(STATE.floor>=3?'#2a2a3a':'#2a3a4a');
-        ctx.fillRect(sx+2,p.y+2,p.w-4,p.h-4);
-        if (p.type==='shelf'||p.type==='box') { ctx.fillStyle='#3a4a5a'; ctx.fillRect(sx,p.y+p.h-2,p.w,2); }
-      });
-      drawInteractables(ctx, camX);
-      STATE.enemies.forEach(e => e.draw(ctx, camX));
-      if (STATE.boss) STATE.boss.draw(ctx, camX);
-      if (STATE.player && STATE.player.health > 0) STATE.player.draw(ctx, camX);
-      STATE.particles.forEach(p => {
-        if (p.isExpOrb) { ctx.globalAlpha = 0.7 + Math.sin(Date.now()/200)*0.3; ctx.fillStyle = '#ffdd00'; ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 8; }
-        else { ctx.globalAlpha = p.life/p.maxLife; ctx.fillStyle = p.color; ctx.shadowBlur = 0; }
-        ctx.fillRect(p.x-camX-p.size/2, p.y-p.size/2, p.size, p.size);
-      });
-      ctx.shadowBlur = 0; ctx.globalAlpha=1;
-      if (STATE.glitchTimer>0) { ctx.fillStyle=`rgba(0,255,255,${(STATE.glitchIntensity||0.3)*0.3})`; ctx.fillRect(0,Math.random()*GAME_H,GAME_W,Math.random()*20); }
-      ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,0,GAME_W,GAME_H);
-      STATE.lights.forEach(l => {
-        const g = ctx.createRadialGradient(l.x-camX,l.y,5,l.x-camX,l.y,l.radius);
-        g.addColorStop(0,'rgba(255,240,220,0.2)'); g.addColorStop(1,'rgba(0,0,0,0)');
-        ctx.fillStyle=g; ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(l.x-camX,l.y,l.radius,0,Math.PI*2); ctx.fill(); ctx.globalCompositeOperation='source-over';
-      });
-      if (STATE.gameOver) {
-        ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,0,GAME_W,GAME_H);
-        ctx.fillStyle='#ff2244'; ctx.font='36px "Courier New"'; ctx.textAlign='center'; ctx.fillText('💀 ВИРУС ПОГЛОТИЛ ТЕБЯ',GAME_W/2,GAME_H/2-10);
-        ctx.fillStyle='#c8d4e0'; ctx.font='16px "Courier New"'; ctx.fillText(`Нажмите R или коснитесь экрана (Этаж ${STATE.lastSavedFloor||1})`,GAME_W/2,GAME_H/2+30);
-      }
-      if (STATE.victory) {
-        ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(0,0,GAME_W,GAME_H);
-        ctx.fillStyle='#ffffff'; ctx.font='28px "Courier New"'; ctx.textAlign='center';
-        ctx.fillText('📓 ДНЕВНИК ДОКТОРА НАЙДЕН',GAME_W/2,GAME_H/2-30);
-        ctx.fillText('🦠 ВИРУС НЕЙТРАЛИЗОВАН',GAME_W/2,GAME_H/2+10);
-        ctx.fillStyle='#c8d0e0'; ctx.font='15px "Courier New"'; ctx.fillText('Новая игра начнётся автоматически',GAME_W/2,GAME_H/2+70);
-      }
-      ctx.restore();
-    }
-
-    function gameLoop(ts) {
-      if (!STATE.lastTime) STATE.lastTime = ts;
-      let dt = (ts-STATE.lastTime)/1000; if (dt>0.1) dt=0.1;
-      STATE.dt = dt; STATE.lastTime = ts;
-      update(dt); draw(ctx); requestAnimationFrame(gameLoop);
-    }
-
     function respawnPlayer() {
       if (STATE.victory) {
         restartGame();
@@ -1194,148 +1306,367 @@
       showMessage(`💾 Сохранение загружено. Этаж ${STATE.lastSavedFloor||1}`, 3);
     }
 
-    // Клавиатура
-    window.addEventListener('keydown', e => {
-      STATE.keys[e.code] = true;
-      if (e.code === 'KeyR' && (STATE.gameOver || STATE.victory)) {
-        respawnPlayer();
-      }
-      if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
-    });
-    window.addEventListener('keyup', e => { STATE.keys[e.code] = false; });
+    function spawnParticle(x, y, opts) {
+      STATE.particles.push({ 
+        x, y, vx: opts.vx||0, vy: opts.vy||0, life: opts.life||0.5, maxLife: opts.life||0.5, 
+        color: opts.color||'#fff', size: opts.size||2, damagePlayer: opts.damagePlayer||false, 
+        damage: opts.damage||0, isExpOrb: opts.isExpOrb||false, healAmount: opts.healAmount||0 
+      });
+    }
     
-    // Мышь
-    canvas.addEventListener('mousedown', e => { 
-      STATE.mouseDown = true;
-      e.preventDefault();
-      e.stopPropagation();
-      // Возрождение при клике на canvas если игра окончена
+    function updateParticles(dt) {
+      for (let i = STATE.particles.length-1; i >= 0; i--) {
+        const p = STATE.particles[i]; 
+        p.life -= dt;
+        if (p.life <= 0) { STATE.particles.splice(i,1); continue; }
+        p.x += p.vx*dt; 
+        p.y += p.vy*dt; 
+        p.vy += 280*dt;
+        if (p.isExpOrb && STATE.player && STATE.player.health > 0 && STATE.player.health < STATE.player.maxHealth) {
+          const dx = (STATE.player.x+STATE.player.w/2)-p.x, dy = (STATE.player.y+STATE.player.h/2)-p.y, dist = Math.hypot(dx, dy);
+          if (dist < 30) {
+            STATE.player.health = Math.min(STATE.player.maxHealth, STATE.player.health + p.healAmount);
+            updateHealthBar(); 
+            p.life = 0;
+            for (let j=0;j<3;j++) STATE.particles.push({ 
+              x:p.x, y:p.y, vx:(Math.random()-0.5)*40, vy:-20-Math.random()*30, 
+              life:0.3, maxLife:0.3, color:'#ffff88', size:2 
+            });
+          } else if (dist < 80) { 
+            p.vx += (dx/dist)*200*dt; 
+            p.vy += (dy/dist)*200*dt; 
+          }
+        }
+        if (p.damagePlayer && STATE.player && STATE.player.health > 0 && 
+            p.x > STATE.player.x && p.x < STATE.player.x+STATE.player.w && 
+            p.y > STATE.player.y && p.y < STATE.player.y+STATE.player.h) { 
+          STATE.player.takeDamage(p.damage); 
+          p.life = 0; 
+        }
+      }
+    }
+    
+    function loadFloor(floorNum) {
+      const data = getFloorData(floorNum);
+      STATE.floor = floorNum; 
+      STATE.platforms = data.platforms;
+      STATE.chainPlatforms = data.chainPlatforms || []; 
+      STATE.enemies = [];
+      STATE.boss = null; 
+      STATE.particles = [];
+      STATE.interactables = data.interactables || [];
+      STATE.lights = data.lights || []; 
+      STATE.lasers = data.lasers || [];
+      STATE.windows = data.windows || [];
+      STATE.diaryFoundThisFloor = false; 
+      STATE.bossDefeated = false;
+      STATE.bossDroppedLoot = false; 
+      STATE.bossHitCount = 0;
+      STATE.staircase = { x: data.staircaseX, y: data.staircaseY };
+      
+      data.enemies.forEach(ed => STATE.enemies.push(new InfectedZombie(ed.x, ed.y, ed.hp, ed.speed, ed.patrolL, ed.patrolR, ed.platformRef, ed.isGrounded, ed.isGuard)));
+      
+      const bossNames = ['Санитар', 'Медсестра', 'Инфекционист', 'Хирург', 'Главврач'];
+      if (floorNum <= 5) STATE.boss = new Boss(2100, GAME_H-120, floorNum, bossNames[floorNum-1]);
+      
+      if (!STATE.player) STATE.player = new Player(100, GAME_H-100);
+      else { 
+        STATE.player.x = 100; 
+        STATE.player.y = GAME_H-100; 
+        STATE.player.health = STATE.player.maxHealth; 
+        STATE.player.vx = 0; 
+        STATE.player.vy = 0; 
+        STATE.player.attackRange = 35; 
+        STATE.player.attackDamage = 1; 
+      }
+      
+      STATE.cameraX = 0; 
+      STATE.cameraTargetX = 0; 
+      STATE.gameOver = false; 
+      STATE.victory = false;
+      STATE.laserGlobalTimer = 0;
+      floorText.textContent = `ЭТАЖ ${STATE.floor}`;
+      updateHealthBar(); 
+      updateBossHealthBar(); 
+      hideMessage();
+      updateFloorStyling();
+      
+      if (floorNum === 1 && !STATE.walkInComplete) { 
+        STATE.walkInComplete = true; 
+        showMessage('🏥 ВЫ ПРОСНУЛИСЬ В БОЛЬНИЦЕ', 3); 
+      }
+    }
+    
+    function updateHealthBar() {
+      if (!STATE.player) return;
+      const ratio = STATE.player.health / STATE.player.maxHealth;
+      healthBarFill.style.width = (ratio*100)+'%';
+      healthText.textContent = Math.floor(STATE.player.health)+'/'+STATE.player.maxHealth;
+      healthBarFill.style.background = ratio < 0.3 ? 'linear-gradient(90deg, #ff0022, #ff2244)' : 
+                                        ratio < 0.6 ? 'linear-gradient(90deg, #ff4422, #ff6644)' : 
+                                        'linear-gradient(90deg, #ff2244, #ff4466)';
+    }
+    
+    function showMessage(text, duration=2.5) { 
+      STATE.messageTimer = duration; 
+      messageCenter.innerHTML = text.replace(/\n/g, '<br>'); 
+      messageCenter.classList.add('visible'); 
+    }
+    
+    function hideMessage() { 
+      messageCenter.classList.remove('visible'); 
+      STATE.messageTimer = 0; 
+    }
+
+    // ============ Отрисовка ============
+    function getFloorColors(floor) {
+      if (floor <= 2) return { bg1: '#0a0a14', bg2: '#0e121c', bg3: '#121a22', win1: '#111a22', win2: 'rgba(40,60,90,0.15)' };
+      if (floor <= 4) return { bg1: '#0f0a14', bg2: '#120e1a', bg3: '#150f1c', win1: '#1a1122', win2: 'rgba(60,30,90,0.2)' };
+      return { bg1: '#140a0a', bg2: '#1c0e0e', bg3: '#1a0f0f', win1: '#221111', win2: 'rgba(90,20,20,0.25)' };
+    }
+
+    function drawBackground(ctx) {
+      const colors = getFloorColors(STATE.floor);
+      const grad = ctx.createLinearGradient(0,0,0,GAME_H);
+      grad.addColorStop(0,colors.bg1); grad.addColorStop(0.5,colors.bg2); grad.addColorStop(1,colors.bg3);
+      ctx.fillStyle = grad; ctx.fillRect(0,0,GAME_W,GAME_H);
+    }
+
+    function draw(ctx) {
+      ctx.clearRect(0,0,GAME_W,GAME_H);
+      const camX = STATE.cameraX;
+      ctx.save(); 
+      if (STATE.screenShake>0.5) ctx.translate(STATE.shakeX||0, STATE.shakeY||0);
+      
+      drawBackground(ctx); 
+      
+      // Окна
+      if (STATE.windows) {
+        const colors = getFloorColors(STATE.floor);
+        STATE.windows.forEach(w => {
+          const sx = w.x-camX; if (sx<-100||sx>GAME_W+100) return;
+          ctx.fillStyle=colors.win1; ctx.fillRect(sx,w.y,w.w,w.h);
+          ctx.fillStyle=colors.win2; ctx.fillRect(sx+4,w.y+4,w.w-8,w.h-8);
+          ctx.strokeStyle='#3a4a5a'; ctx.lineWidth=2; ctx.strokeRect(sx,w.y,w.w,w.h);
+        });
+      }
+      
+      // Цепные платформы
+      STATE.chainPlatforms.forEach(p => {
+        const sx = p.x-camX; if (sx<-80||sx>GAME_W+80) return;
+        ctx.strokeStyle='#4a5a6a'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+        ctx.beginPath(); ctx.moveTo(sx+10,0); ctx.lineTo(sx+10,p.y);
+        ctx.moveTo(sx+p.w-10,0); ctx.lineTo(sx+p.w-10,p.y); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle='#1a1a24'; ctx.fillRect(sx,p.y,p.w,p.h);
+        ctx.fillStyle='#3a4a5a'; ctx.fillRect(sx+2,p.y+2,p.w-4,p.h-4);
+      });
+      
+      // Лазеры
+      const laserActive = STATE.laserGlobalTimer % 2.5 < 1.5;
+      STATE.lasers.forEach(l => l.active = laserActive);
+      if (laserActive) {
+        STATE.lasers.forEach(l => {
+          const sx = l.x-camX; if (sx<-20||sx>GAME_W+20) return;
+          ctx.globalAlpha=0.8; ctx.fillStyle='#44eeff'; ctx.shadowColor='#00ccff'; ctx.shadowBlur=30;
+          ctx.fillRect(sx+2,l.y,4,l.h); ctx.shadowBlur=0;
+          ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.fillRect(sx+1,l.y,6,l.h); ctx.globalAlpha=1;
+        });
+      }
+      
+      // Платформы
+      STATE.platforms.forEach(p => {
+        const sx = p.x-camX; if (sx>GAME_W+50||sx+p.w<-50) return;
+        ctx.fillStyle='#1a1a24'; ctx.fillRect(sx,p.y,p.w,p.h);
+        ctx.fillStyle=p.type==='wall'?(STATE.floor>=3?'#3a2a3a':'#3a2a2a'):(STATE.floor>=3?'#2a2a3a':'#2a3a4a');
+        ctx.fillRect(sx+2,p.y+2,p.w-4,p.h-4);
+        if (p.type==='shelf'||p.type==='box') { ctx.fillStyle='#3a4a5a'; ctx.fillRect(sx,p.y+p.h-2,p.w,2); }
+      });
+      
+      // Интерактивные объекты
+      STATE.interactables.forEach(item => {
+        if (item.collected || (item.type==='door_interact'&&item.opened)) return;
+        const sx = item.x-camX; if (sx<-40||sx>GAME_W+40) return;
+        if (item.type === 'terminal') {
+          ctx.fillStyle='#1a1a24'; ctx.fillRect(sx-4,item.y-4,38,28);
+          ctx.fillStyle='#2a3a4a'; ctx.fillRect(sx-2,item.y-2,34,24);
+          ctx.fillStyle='#44eeff'; ctx.font='8px "Courier New"'; ctx.textAlign='center'; ctx.fillText('[TERM]',sx+15,item.y+16);
+        } else if (item.type === 'diary') {
+          ctx.fillStyle='#2a1a10'; ctx.fillRect(sx,item.y,16,16);
+          ctx.fillStyle='#4a3a20'; ctx.fillRect(sx+2,item.y+2,12,12);
+          ctx.fillStyle='#ffaa00'; ctx.font='6px "Courier New"'; ctx.textAlign='center'; ctx.fillText('📄',sx+8,item.y+12);
+        } else if (item.type === 'bow') {
+          ctx.fillStyle='#ffaa00'; ctx.shadowColor='#ffcc00'; ctx.shadowBlur=20;
+          ctx.fillRect(sx,item.y,20,12); ctx.shadowBlur=0;
+          ctx.fillStyle='#fff'; ctx.font='8px "Courier New"'; ctx.textAlign='center'; ctx.fillText('🏹',sx+10,item.y+10);
+        } else if (item.type === 'pill') {
+          ctx.fillStyle='#ff4466'; ctx.shadowColor='#ff6688'; ctx.shadowBlur=10;
+          ctx.fillRect(sx,item.y,12,8); ctx.fillStyle='#fff'; ctx.fillRect(sx+5,item.y+2,2,4); ctx.shadowBlur=0;
+        } else if (item.type === 'door_interact') {
+          ctx.fillStyle='#2a2a2a'; ctx.fillRect(sx-2,item.y-2,34,64);
+          ctx.fillStyle='#4a3a2a'; ctx.fillRect(sx,item.y,30,60);
+          ctx.fillStyle='#aa8840'; ctx.fillRect(sx+22,item.y+28,6,6);
+          ctx.fillStyle='#fff'; ctx.font='5px "Courier New"'; ctx.textAlign='center'; ctx.fillText(item.label,sx+15,item.y-8);
+        }
+      });
+      
+      // Лестница
+      if (STATE.staircase) {
+        const sx = STATE.staircase.x-camX;
+        if (sx>-60 && sx<GAME_W+60) {
+          const canGo = STATE.diaryFoundThisFloor && STATE.bossDefeated;
+          ctx.fillStyle='#1a1a24'; ctx.fillRect(sx,STATE.staircase.y-60,40,60);
+          ctx.fillStyle=canGo?'#2a4a3a':'#4a2a2a'; ctx.fillRect(sx+4,STATE.staircase.y-56,32,56);
+          ctx.fillStyle=canGo?'#44eeff':'#ff2244'; ctx.font='6px "Courier New"'; ctx.textAlign='center';
+          if (!STATE.bossDefeated && STATE.diaryFoundThisFloor) ctx.fillText('⚠ УБЕЙТЕ БОССА',sx+20,STATE.staircase.y-65);
+          else if (!STATE.diaryFoundThisFloor && STATE.bossDefeated) ctx.fillText('📄 НАЙДИТЕ ДНЕВНИК',sx+20,STATE.staircase.y-65);
+          else if (!STATE.diaryFoundThisFloor && !STATE.bossDefeated) ctx.fillText('🔒 ЗАКРЫТО',sx+20,STATE.staircase.y-65);
+          else ctx.fillText('▶ ВЫХОД',sx+20,STATE.staircase.y-65);
+        }
+      }
+      
+      // Враги и босс
+      STATE.enemies.forEach(e => e.draw(ctx, camX));
+      if (STATE.boss) STATE.boss.draw(ctx, camX);
+      if (STATE.player && STATE.player.health > 0) STATE.player.draw(ctx, camX);
+      
+      // Частицы
+      STATE.particles.forEach(p => {
+        if (p.isExpOrb) { 
+          ctx.globalAlpha = 0.7 + Math.sin(Date.now()/200)*0.3; 
+          ctx.fillStyle = '#ffdd00'; ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 8; 
+        } else { 
+          ctx.globalAlpha = p.life/p.maxLife; 
+          ctx.fillStyle = p.color; ctx.shadowBlur = 0; 
+        }
+        ctx.fillRect(p.x-camX-p.size/2, p.y-p.size/2, p.size, p.size);
+      });
+      ctx.shadowBlur = 0; ctx.globalAlpha=1;
+      
+      // Эффекты
+      if (STATE.glitchTimer>0) { 
+        ctx.fillStyle=`rgba(0,255,255,${(STATE.glitchIntensity||0.3)*0.3})`; 
+        ctx.fillRect(0,Math.random()*GAME_H,GAME_W,Math.random()*20); 
+      }
+      ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,0,GAME_W,GAME_H);
+      
+      // Освещение
+      STATE.lights.forEach(l => {
+        const g = ctx.createRadialGradient(l.x-camX,l.y,5,l.x-camX,l.y,l.radius);
+        g.addColorStop(0,'rgba(255,240,220,0.2)'); g.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=g; ctx.globalCompositeOperation='destination-out'; 
+        ctx.beginPath(); ctx.arc(l.x-camX,l.y,l.radius,0,Math.PI*2); ctx.fill(); 
+        ctx.globalCompositeOperation='source-over';
+      });
+      
+      // Экраны Game Over и Victory
       if (STATE.gameOver) {
-        respawnPlayer();
+        ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,0,GAME_W,GAME_H);
+        ctx.fillStyle='#ff2244'; ctx.font='36px "Courier New"'; ctx.textAlign='center'; 
+        ctx.fillText('💀 ВИРУС ПОГЛОТИЛ ТЕБЯ',GAME_W/2,GAME_H/2-10);
+        ctx.fillStyle='#c8d4e0'; ctx.font='16px "Courier New"'; 
+        ctx.fillText(`Нажмите R или коснитесь экрана (Этаж ${STATE.lastSavedFloor||1})`,GAME_W/2,GAME_H/2+30);
       }
-    });
-    
-    canvas.addEventListener('mouseup', e => { 
-      STATE.mouseDown = false; 
-      e.preventDefault();
-      e.stopPropagation();
-    });
-    
-    canvas.addEventListener('mouseleave', e => {
-      STATE.mouseDown = false;
-    });
-    
-    canvas.addEventListener('contextmenu', e => {
-      e.preventDefault();
-      e.stopPropagation();
-    });
-
-    // Сенсорный экран (canvas)
-    canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      STATE.mouseDown = true;
-    }, {passive: false});
-    
-    canvas.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      STATE.mouseDown = false;
-      // Возрождение при касании canvas если игра окончена
-      if (STATE.gameOver) {
-        respawnPlayer();
+      if (STATE.victory) {
+        ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(0,0,GAME_W,GAME_H);
+        ctx.fillStyle='#ffffff'; ctx.font='28px "Courier New"'; ctx.textAlign='center';
+        ctx.fillText('📓 ДНЕВНИК ДОКТОРА НАЙДЕН',GAME_W/2,GAME_H/2-30);
+        ctx.fillText('🦠 ВИРУС НЕЙТРАЛИЗОВАН',GAME_W/2,GAME_H/2+10);
+        ctx.fillStyle='#c8d0e0'; ctx.font='15px "Courier New"'; 
+        ctx.fillText('Новая игра начнётся автоматически',GAME_W/2,GAME_H/2+70);
       }
-    }, {passive: false});
-    
-    canvas.addEventListener('touchcancel', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      STATE.mouseDown = false;
-    }, {passive: false});
-
-    // Универсальная настройка кнопок управления (touch + mouse)
-    function setupTouchButton(id, pressVar) {
-      const btn = document.getElementById(id);
-      if (!btn) return;
-      
-      // Touch события
-      btn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        window[pressVar] = true;
-      }, {passive: false});
-      
-      btn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        window[pressVar] = false;
-      }, {passive: false});
-      
-      btn.addEventListener('touchcancel', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        window[pressVar] = false;
-      }, {passive: false});
-      
-      // Mouse события
-      btn.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        window[pressVar] = true;
-      });
-      
-      btn.addEventListener('mouseup', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        window[pressVar] = false;
-      });
-      
-      btn.addEventListener('mouseleave', (e) => {
-        e.preventDefault();
-        window[pressVar] = false;
-      });
-
-      // Предотвращаем дефолтный click
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
+      ctx.restore();
     }
-    
-    setupTouchButton('touch-left', 'touchLeft');
-    setupTouchButton('touch-right', 'touchRight');
-    setupTouchButton('touch-jump', 'touchJump');
-    setupTouchButton('touch-attack', 'touchAttack');
-    setupTouchButton('touch-interact', 'touchInteract');
 
-    // Кнопка полного экрана
-    function toggleFullscreen(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const wrapper = document.getElementById('game-wrapper');
-      if (!document.fullscreenElement) {
-        if (wrapper.requestFullscreen) wrapper.requestFullscreen().catch(() => {});
-        else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
-        else if (wrapper.msRequestFullscreen) wrapper.msRequestFullscreen();
-      } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        else if (document.msExitFullscreen) document.msExitFullscreen();
+    // ============ Игровой цикл ============
+    function update(dt) {
+      if (!STATE.gameStarted) return;
+      STATE.laserGlobalTimer += dt;
+      
+      if (STATE.victory && !STATE.victoryShown) { 
+        STATE.victoryShown = true; 
+        showMessage('📓 ДНЕВНИК ДОКТОРА НАЙДЕН\n🦠 ВИРУС НЕЙТРАЛИЗОВАН\n\n🔄 Новая игра через 3 сек...', 3); 
+      }
+      if (STATE.gameOver || STATE.victory) { 
+        updateParticles(dt); 
+        STATE.screenShake *= 0.85; 
+        return; 
+      }
+      
+      STATE.voiceTimer -= dt;
+      if (STATE.voiceTimer <= 0) { 
+        STATE.voiceTimer = 8+Math.random()*10; 
+        showMessage('...'+['Выходи...','Помоги нам...','Найди правду...','Не верь глазам...'][Math.floor(Math.random()*4)], 2); 
+      }
+      if (STATE.glitchTimer > 0) { 
+        STATE.glitchTimer -= dt; 
+        STATE.glitchIntensity = Math.max(0, STATE.glitchIntensity-dt*1.5); 
+      }
+      
+      if (STATE.player && STATE.player.health > 0) STATE.player.update(dt);
+      
+      for (let i = STATE.enemies.length-1; i >= 0; i--) {
+        const e = STATE.enemies[i]; 
+        e.update(dt);
+        if (!e.dead && STATE.player && STATE.player.health > 0 && 
+            e.x < STATE.player.x+STATE.player.w && e.x+e.w > STATE.player.x && 
+            e.y < STATE.player.y+STATE.player.h && e.y+e.h > STATE.player.y) { 
+          STATE.player.takeDamage(12+STATE.floor); 
+          e.hitFlash = 0.3; 
+        }
+        if (e.dead && e.deathTimer <= 0) STATE.enemies.splice(i,1);
+      }
+      
+      if (STATE.boss) STATE.boss.update(dt);
+      updateParticles(dt);
+      
+      STATE.screenShake *= 0.85; 
+      STATE.shakeX = (Math.random()-0.5)*STATE.screenShake*2; 
+      STATE.shakeY = (Math.random()-0.5)*STATE.screenShake*2;
+      
+      if (STATE.player) { 
+        STATE.cameraTargetX = STATE.player.x-GAME_W/2; 
+        STATE.cameraTargetX = Math.max(0, Math.min(2400-GAME_W, STATE.cameraTargetX)); 
+        STATE.cameraX += (STATE.cameraTargetX-STATE.cameraX)*dt*6; 
+      }
+      
+      if (STATE.staircase && STATE.player && STATE.player.health > 0) {
+        const s = STATE.staircase, p = STATE.player;
+        if (p.x+p.w > s.x-10 && p.x < s.x+38 && p.y+p.h > s.y-55 && p.y < s.y+10) {
+          if (STATE.floor === 5) {
+            if (!STATE.diaryFoundThisFloor || !STATE.bossDefeated) { 
+              if (!STATE.bossDefeated) showMessage('⚠ СНАЧАЛА УБЕЙТЕ БОССА!', 1.5); 
+              else if (!STATE.diaryFoundThisFloor) showMessage('📄 НАЙДИТЕ СТРАНИЦУ ДНЕВНИКА!', 1.5); 
+            } else STATE.victory = true;
+          } else if (STATE.floor < STATE.maxFloor) {
+            if (STATE.diaryFoundThisFloor && STATE.bossDefeated) { 
+              const nf = STATE.floor+1; 
+              loadFloor(nf); 
+              floorText.textContent = `ЭТАЖ ${nf}`; 
+              updateFloorStyling(); 
+              showMessage(`🏥 ЭТАЖ ${nf}`, 2); 
+            } else if (!STATE.bossDefeated) showMessage('⚠ СНАЧАЛА УБЕЙТЕ БОССА!', 1.5);
+            else if (!STATE.diaryFoundThisFloor) showMessage('📄 НАЙДИТЕ СТРАНИЦУ ДНЕВНИКА!', 1.5);
+          }
+        }
+      }
+      
+      if (STATE.messageTimer > 0) { 
+        STATE.messageTimer -= dt; 
+        if (STATE.messageTimer <= 0) hideMessage(); 
       }
     }
 
-    fullscreenBtn.addEventListener('click', toggleFullscreen);
-    fullscreenBtn.addEventListener('touchend', toggleFullscreen);
-
-    // Кнопка старта
-    function handleStart(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      startGame();
+    function gameLoop(ts) {
+      if (!STATE.lastTime) STATE.lastTime = ts;
+      let dt = (ts-STATE.lastTime)/1000; 
+      if (dt>0.1) dt=0.1;
+      STATE.dt = dt; 
+      STATE.lastTime = ts;
+      update(dt); 
+      draw(ctx); 
+      requestAnimationFrame(gameLoop);
     }
-    startBtn.addEventListener('click', handleStart);
-    startBtn.addEventListener('touchend', handleStart);
-    
+
     function startGame() {
       introOverlay.classList.add('hidden');
       STATE.gameStarted = true;
@@ -1374,8 +1705,10 @@
       STATE.lastTime = performance.now();
       requestAnimationFrame(gameLoop);
     }
+
+    setupInputHandlers();
     init();
-    console.log('⛓ "Карантин" — Полная поддержка touch и mouse! Клик/тап для возрождения!');
+    console.log('⛓ "Карантин" — Полная поддержка клавиатуры, мыши и сенсора!');
   })();
 </script>
 </body>
