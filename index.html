@@ -48,21 +48,27 @@
     }
     #game-wrapper {
       position: relative;
-      width: 100%;
-      height: 100%;
+      width: 100vw;
+      height: 56.25vw;
       max-width: 960px;
       max-height: 540px;
+      min-height: 320px;
       border: 2px solid #1c2e3a;
       box-shadow: 0 0 60px rgba(0, 200, 255, 0.1);
       background: #050510;
       overflow: hidden;
       image-rendering: auto;
+      object-fit: contain;
     }
     canvas {
       display: block;
       width: 100%;
       height: 100%;
       image-rendering: auto;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
     }
     #ui-overlay {
       position: absolute;
@@ -243,7 +249,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      z-index: 30;
+      z-index: 50;
       background: rgba(5, 5, 16, 0.98);
       display: flex;
       flex-direction: column;
@@ -254,6 +260,7 @@
       text-align: center;
       padding: 20px;
       transition: opacity 0.8s;
+      pointer-events: auto;
     }
     #intro-overlay.hidden { opacity: 0; pointer-events: none; }
     #intro-overlay h1 { font-size: clamp(24px, 5vmin, 48px); color: #ff4466; margin-bottom: 10px; letter-spacing: 6px; text-shadow: 0 0 40px rgba(255, 68, 102, 0.3); }
@@ -272,6 +279,8 @@
       letter-spacing: 2px;
       box-shadow: 0 0 15px rgba(255, 68, 102, 0.1);
       touch-action: manipulation;
+      position: relative;
+      z-index: 60;
     }
     #intro-overlay .start-btn:hover, #intro-overlay .start-btn:active { background: #1a0a10; border-color: #ff6688; box-shadow: 0 0 30px rgba(255, 68, 102, 0.4); }
 
@@ -283,9 +292,9 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      pointer-events: none;
-      z-index: 25;
+      z-index: 40;
       padding: 0 10px;
+      pointer-events: none;
     }
     .touch-group { display: flex; gap: 8px; align-items: center; pointer-events: auto; }
     .touch-btn {
@@ -308,6 +317,9 @@
       cursor: pointer;
       -webkit-appearance: none;
       appearance: none;
+      outline: none;
+      position: relative;
+      z-index: 45;
     }
     .touch-btn:active { background: rgba(30, 50, 70, 0.9); border-color: #44eeff; }
     #touch-jump { background: rgba(20, 40, 30, 0.9); border-color: #44ff66; }
@@ -327,13 +339,16 @@
       touch-action: manipulation;
       -webkit-appearance: none;
       appearance: none;
+      outline: none;
       z-index: 100;
+      position: relative;
     }
 
     @media (max-width: 768px) {
       #game-wrapper {
         width: 100vw;
         height: 56.25vw;
+        min-height: 250px;
         max-height: 100vh;
         border: 2px solid #1a2a3a;
       }
@@ -349,6 +364,11 @@
       .health-container, .boss-health-container, .status-bar, .status-bar-floor { padding: 4px 6px; }
     }
     @media (max-width: 480px) {
+      #game-wrapper {
+        width: 100vw;
+        height: 56.25vw;
+        min-height: 220px;
+      }
       .touch-btn { width: 36px; height: 36px; font-size: 18px; border-radius: 8px; }
       .touch-group { gap: 4px; }
       #touch-controls { padding: 0 4px; bottom: 6px; }
@@ -361,6 +381,15 @@
       #interact-hint { bottom: 28px; font-size: 8px; padding: 2px 6px; }
       .heart-icon { font-size: 14px; }
       .boss-icon { font-size: 12px; }
+    }
+
+    @media (orientation: portrait) {
+      #game-wrapper {
+        width: 100vw;
+        height: 56.25vw;
+        min-height: 200px;
+        max-height: 60vh;
+      }
     }
   </style>
 </head>
@@ -476,13 +505,13 @@
 
     function updateFloorStyling() {
       const floor = STATE.floor;
-      let primaryColor, secondaryColor, hintBorderColor, hintTextColor;
+      let secondaryColor, hintBorderColor, hintTextColor;
       if (floor <= 2) {
-        primaryColor = '#2a4a5a'; secondaryColor = '#3a5a6a'; hintBorderColor = '#ff4466'; hintTextColor = '#e0e8f0';
+        secondaryColor = '#3a5a6a'; hintBorderColor = '#ff4466'; hintTextColor = '#e0e8f0';
       } else if (floor <= 4) {
-        primaryColor = '#4a2a5a'; secondaryColor = '#5a3a6a'; hintBorderColor = '#aa44ff'; hintTextColor = '#e8d0ff';
+        secondaryColor = '#5a3a6a'; hintBorderColor = '#aa44ff'; hintTextColor = '#e8d0ff';
       } else {
-        primaryColor = '#5a2a2a'; secondaryColor = '#6a3a3a'; hintBorderColor = '#ff6644'; hintTextColor = '#ffe0d0';
+        secondaryColor = '#6a3a3a'; hintBorderColor = '#ff6644'; hintTextColor = '#ffe0d0';
       }
       document.querySelectorAll('.touch-btn').forEach(btn => {
         btn.style.background = `rgba(20, 30, 40, 0.9)`;
@@ -1127,7 +1156,7 @@
       if (STATE.gameOver) {
         ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,0,GAME_W,GAME_H);
         ctx.fillStyle='#ff2244'; ctx.font='36px "Courier New"'; ctx.textAlign='center'; ctx.fillText('💀 ВИРУС ПОГЛОТИЛ ТЕБЯ',GAME_W/2,GAME_H/2-10);
-        ctx.fillStyle='#c8d4e0'; ctx.font='16px "Courier New"'; ctx.fillText(`Нажмите R для возрождения (Этаж ${STATE.lastSavedFloor||1})`,GAME_W/2,GAME_H/2+30);
+        ctx.fillStyle='#c8d4e0'; ctx.font='16px "Courier New"'; ctx.fillText('Нажмите R или коснитесь экрана для возрождения',GAME_W/2,GAME_H/2+30);
       }
       if (STATE.victory) {
         ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(0,0,GAME_W,GAME_H);
@@ -1146,35 +1175,64 @@
       update(dt); draw(ctx); requestAnimationFrame(gameLoop);
     }
 
+    function respawnPlayer() {
+      if (STATE.victory) {
+        restartGame();
+        return;
+      }
+      STATE.collectedPages = new Set(); 
+      STATE.foundPages = 0; 
+      STATE.pillsUsed = 0;
+      STATE.glitchTimer = 0; 
+      STATE.voiceTimer = 0; 
+      STATE.laserGlobalTimer = 0;
+      STATE.victoryShown = false; 
+      STATE.bossDroppedLoot = false; 
+      STATE.bossHitCount = 0;
+      STATE.hasBow = false; 
+      STATE.bowFound = false;
+      loadFloor(STATE.lastSavedFloor||1);
+      STATE.player.health = STATE.player.maxHealth; 
+      updateHealthBar(); 
+      updateBossHealthBar(); 
+      hideMessage();
+      updateFloorStyling();
+      showMessage(`💾 Сохранение загружено. Этаж ${STATE.lastSavedFloor||1}`, 3);
+    }
+
     window.addEventListener('keydown', e => {
       STATE.keys[e.code] = true;
-      if (e.code === 'KeyR') {
-        if (STATE.victory) {
-          restartGame();
-          return;
-        }
-        STATE.collectedPages = new Set(); STATE.foundPages = 0; STATE.pillsUsed = 0;
-        STATE.glitchTimer = 0; STATE.voiceTimer = 0; STATE.laserGlobalTimer = 0;
-        STATE.victoryShown = false; STATE.bossDroppedLoot = false; STATE.bossHitCount = 0;
-        if (STATE.victory) { STATE.hasBow = false; STATE.bowFound = false; }
-        loadFloor(STATE.lastSavedFloor||1);
-        STATE.player.health = STATE.player.maxHealth; updateHealthBar(); updateBossHealthBar(); hideMessage();
-        updateFloorStyling();
-        showMessage(`💾 Сохранение загружено. Этаж ${STATE.lastSavedFloor||1}`, 3);
+      if (e.code === 'KeyR' && (STATE.gameOver || STATE.victory)) {
+        respawnPlayer();
       }
       if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
     });
     window.addEventListener('keyup', e => { STATE.keys[e.code] = false; });
-    canvas.addEventListener('mousedown', e => { STATE.mouseDown = true; e.preventDefault(); });
+    
+    // Обработчики canvas
+    canvas.addEventListener('mousedown', e => { 
+      STATE.mouseDown = true; 
+      e.preventDefault();
+      if (STATE.gameOver) {
+        respawnPlayer();
+      }
+    });
     canvas.addEventListener('mouseup', e => { STATE.mouseDown = false; e.preventDefault(); });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-    // Универсальная настройка кнопок (работает и на ПК и на телефоне)
+    // Touch для возрождения
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (STATE.gameOver) {
+        respawnPlayer();
+      }
+    });
+
+    // Универсальная настройка кнопок
     function setupTouchButton(id, pressVar) {
       const btn = document.getElementById(id);
       if (!btn) return;
       
-      // Обработчик для touch-устройств
       btn.addEventListener('touchstart', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1193,7 +1251,6 @@
         window[pressVar] = false;
       }, {passive: false});
       
-      // Обработчик для мыши (ПК)
       btn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1211,7 +1268,6 @@
         window[pressVar] = false;
       });
 
-      // Предотвращаем двойное срабатывание click
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1224,8 +1280,8 @@
     setupTouchButton('touch-attack', 'touchAttack');
     setupTouchButton('touch-interact', 'touchInteract');
 
-    // Кнопка полного экрана (отдельная логика)
-    fullscreenBtn.addEventListener('click', (e) => {
+    // Кнопка полного экрана
+    function toggleFullscreen(e) {
       e.preventDefault();
       e.stopPropagation();
       const wrapper = document.getElementById('game-wrapper');
@@ -1238,23 +1294,10 @@
         else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         else if (document.msExitFullscreen) document.msExitFullscreen();
       }
-    });
+    }
 
-    // Touch-обработчик для кнопки полного экрана
-    fullscreenBtn.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const wrapper = document.getElementById('game-wrapper');
-      if (!document.fullscreenElement) {
-        if (wrapper.requestFullscreen) wrapper.requestFullscreen().catch(() => {});
-        else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
-        else if (wrapper.msRequestFullscreen) wrapper.msRequestFullscreen();
-      } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        else if (document.msExitFullscreen) document.msExitFullscreen();
-      }
-    });
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+    fullscreenBtn.addEventListener('touchend', toggleFullscreen);
 
     startBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); });
     startBtn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); });
@@ -1298,7 +1341,7 @@
       requestAnimationFrame(gameLoop);
     }
     init();
-    console.log('⛓ "Карантин" — Все кнопки работают! PWA готово!');
+    console.log('⛓ "Карантин" — Все кнопки работают на ПК и телефоне!');
   })();
 </script>
 </body>
