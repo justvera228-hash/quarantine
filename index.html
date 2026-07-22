@@ -12,8 +12,7 @@
   <meta name="theme-color" content="#05050e">
   <meta name="description" content="Вирус искажает реальность. Вы слышите голоса. За вами охотятся заражённые.">
   
-  <!-- PWA манифест -->
-  <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogItCa0LDRgNCw0L3RgtC40L0uINCR0L7Qu9GM0L3QuNGG0LAuIiwKICAic2hvcnRfbmFtZSI6ICLQmtCw0YDQsNC90YLQuNC9IiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMwNTA1MGUiLAogICJ0aGVtZV9jb2xvciI6ICIjMDUwNTBlIiwKICAib3JpZW50YXRpb24iOiAiYW55IiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sLDxzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgMTAwIDEwMCc+PHRleHQgeT0nLjllbScgZm9udC1zaXplPSc5MCc+4publzwvdGV4dD48L3N2Zz4iLAogICAgICAic2l6ZXMiOiAiMTkyeDE5MiIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiCiAgICB9LAogICAgewogICAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbCw8c3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDEwMCAxMDAnPjx0ZXh0IHk9Jy45ZW0nIGZvbnQtc2l6ZT0nOTAnPuKblzwvdGV4dD48L3N2Zz4iLAogICAgICAic2l6ZXMiOiAiNTEyeDUxMiIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiCiAgICB9CiAgXSwKICAic2NvcGUiOiAiLiIsCiAgImxhbmciOiAicnUiCn0=">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛓</text></svg>">
   
   <style>
     :root {
@@ -23,10 +22,6 @@
       --accent: #00e5ff;
       --danger: #ff2244;
       --health: #ff4466;
-      --safe-area-inset-top: env(safe-area-inset-top, 0px);
-      --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
-      --safe-area-inset-left: env(safe-area-inset-left, 0px);
-      --safe-area-inset-right: env(safe-area-inset-right, 0px);
     }
     
     * { 
@@ -76,34 +71,6 @@
       max-width: none;
       max-height: none;
       min-height: auto;
-      border: none;
-    }
-    
-    /* Режим PWA (standalone) */
-    @media all and (display-mode: standalone) {
-      #game-wrapper {
-        width: 100vw;
-        height: 100vh;
-        max-width: none;
-        max-height: none;
-        border: none;
-      }
-      
-      #game-wrapper.fullscreen-active {
-        width: 100vw;
-        height: 100vh;
-      }
-    }
-    
-    /* Режим полноэкранного приложения */
-    @media all and (display-mode: fullscreen) {
-      #game-wrapper {
-        width: 100vw;
-        height: 100vh;
-        max-width: none;
-        max-height: none;
-        border: none;
-      }
     }
     
     canvas {
@@ -114,9 +81,9 @@
     
     #ui-overlay {
       position: absolute;
-      top: calc(12px + var(--safe-area-inset-top));
-      left: calc(16px + var(--safe-area-inset-left));
-      right: calc(16px + var(--safe-area-inset-right));
+      top: 12px;
+      left: 16px;
+      right: 16px;
       display: flex;
       justify-content: space-between;
       pointer-events: none;
@@ -293,7 +260,7 @@
     
     #controls-hint {
       position: absolute;
-      bottom: calc(4px + var(--safe-area-inset-bottom));
+      bottom: 4px;
       left: 50%;
       transform: translateX(-50%);
       pointer-events: none;
@@ -409,14 +376,15 @@
 
     #touch-controls {
       position: absolute;
-      bottom: calc(12px + var(--safe-area-inset-bottom));
-      left: calc(10px + var(--safe-area-inset-left));
-      right: calc(10px + var(--safe-area-inset-right));
+      bottom: 12px;
+      left: 0;
+      right: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
       pointer-events: none;
       z-index: 25;
+      padding: 0 10px;
     }
     
     .touch-group { 
@@ -503,7 +471,7 @@
       #controls-hint { 
         font-size: 7px; 
         padding: 1px 6px; 
-        bottom: calc(4px + var(--safe-area-inset-bottom)); 
+        bottom: 2px; 
         white-space: normal;
         max-width: 90%;
       }
@@ -523,9 +491,7 @@
       
       #touch-controls { 
         padding: 0 8px; 
-        bottom: calc(12px + var(--safe-area-inset-bottom)); 
-        left: calc(8px + var(--safe-area-inset-left));
-        right: calc(8px + var(--safe-area-inset-right));
+        bottom: 12px; 
       }
       
       .health-bar-bg, 
@@ -549,9 +515,9 @@
       }
       
       #ui-overlay { 
-        top: calc(12px + var(--safe-area-inset-top)); 
-        left: calc(8px + var(--safe-area-inset-left)); 
-        right: calc(8px + var(--safe-area-inset-right)); 
+        top: 12px; 
+        left: 8px; 
+        right: 8px; 
       }
       
       .health-container, 
@@ -590,9 +556,7 @@
       
       #touch-controls { 
         padding: 0 6px; 
-        bottom: calc(12px + var(--safe-area-inset-bottom)); 
-        left: calc(6px + var(--safe-area-inset-left));
-        right: calc(6px + var(--safe-area-inset-right));
+        bottom: 12px; 
       }
       
       .health-bar-bg, 
@@ -616,15 +580,15 @@
       }
       
       #ui-overlay { 
-        top: calc(12px + var(--safe-area-inset-top)); 
-        left: calc(6px + var(--safe-area-inset-left)); 
-        right: calc(6px + var(--safe-area-inset-right)); 
+        top: 12px; 
+        left: 6px; 
+        right: 6px; 
       }
       
       #controls-hint { 
         font-size: 6px; 
         padding: 1px 4px; 
-        bottom: calc(4px + var(--safe-area-inset-bottom)); 
+        bottom: 4px; 
         max-width: 90%;
       }
       
@@ -643,52 +607,14 @@
       }
     }
 
-    /* Вертикальная ориентация на мобильных устройствах */
-    @media (max-width: 768px) and (orientation: portrait) {
+    /* Ориентация для портретного режима */
+    @media (orientation: portrait) {
       #game-wrapper {
         width: 100vw;
         height: 100vh;
         min-height: 100vh;
-      }
-      
-      #game-wrapper.fullscreen-active {
-        width: 100vw;
-        height: 100vh;
-      }
-      
-      /* В вертикальном режиме кнопки делаем крупнее для удобства */
-      .touch-btn { 
-        width: 52px; 
-        height: 52px; 
-        font-size: 24px; 
-      }
-      
-      #touch-controls {
-        bottom: calc(20px + var(--safe-area-inset-bottom));
-        flex-direction: column;
-        gap: 20px;
-      }
-      
-      .touch-group {
-        justify-content: space-between;
-        width: 100%;
-      }
-      
-      #touch-group-left {
-        justify-content: space-around;
-      }
-      
-      #touch-group-right {
-        justify-content: space-around;
-      }
-    }
-    
-    /* Горизонтальная ориентация на мобильных устройствах */
-    @media (max-width: 768px) and (orientation: landscape) {
-      #game-wrapper {
-        width: 100vw;
-        height: 100vh;
-        min-height: 100vh;
+        max-width: none;
+        max-height: none;
       }
       
       #game-wrapper.fullscreen-active {
@@ -705,16 +631,6 @@
       
       #game-wrapper {
         min-height: -webkit-fill-available;
-      }
-    }
-    
-    /* Стили для PWA режима на iOS */
-    @supports (padding-top: env(safe-area-inset-top)) {
-      #game-wrapper {
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
-        padding-left: env(safe-area-inset-left);
-        padding-right: env(safe-area-inset-right);
       }
     }
   </style>
@@ -770,74 +686,17 @@
 
 <script>
   (function() {
-    // ============ PWA Service Worker с кэшированием ============
+    // ============ PWA Service Worker ============
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         const swCode = `
-          const CACHE_NAME = 'quarantine-game-v1';
-          const urlsToCache = [
-            '/',
-            'index.html'
-          ];
-
-          self.addEventListener('install', (event) => {
-            event.waitUntil(
-              caches.open(CACHE_NAME)
-                .then((cache) => {
-                  console.log('Opened cache');
-                  return cache.addAll(urlsToCache);
-                })
-                .then(() => self.skipWaiting())
-            );
-          });
-
-          self.addEventListener('activate', (event) => {
-            event.waitUntil(
-              caches.keys().then((cacheNames) => {
-                return Promise.all(
-                  cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
-                      return caches.delete(cacheName);
-                    }
-                  })
-                );
-              }).then(() => self.clients.claim())
-            );
-          });
-
-          self.addEventListener('fetch', (event) => {
-            event.respondWith(
-              caches.match(event.request)
-                .then((response) => {
-                  if (response) {
-                    return response;
-                  }
-                  return fetch(event.request).then(
-                    (response) => {
-                      if(!response || response.status !== 200 || response.type !== 'basic') {
-                        return response;
-                      }
-                      const responseToCache = response.clone();
-                      caches.open(CACHE_NAME)
-                        .then((cache) => {
-                          cache.put(event.request, responseToCache);
-                        });
-                      return response;
-                    }
-                  );
-                })
-            );
-          });
+          self.addEventListener('install', (e) => { self.skipWaiting(); });
+          self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
+          self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
         `;
         const blob = new Blob([swCode], { type: 'application/javascript' });
         const swUrl = URL.createObjectURL(blob);
-        navigator.serviceWorker.register(swUrl)
-          .then((registration) => {
-            console.log('ServiceWorker registration successful with scope: ', registration.scope);
-          })
-          .catch((err) => {
-            console.log('ServiceWorker registration failed: ', err);
-          });
+        navigator.serviceWorker.register(swUrl).catch(() => {});
       });
     }
 
@@ -925,12 +784,6 @@
                 document.webkitFullscreenElement || 
                 document.mozFullScreenElement ||
                 document.msFullscreenElement);
-    }
-
-    function isPWAStandalone() {
-      return window.matchMedia('(display-mode: standalone)').matches || 
-             window.navigator.standalone || 
-             document.referrer.includes('android-app://');
     }
 
     function enterFullscreen() {
@@ -1032,18 +885,12 @@
     // Автоматический полноэкранный режим при первом взаимодействии на мобильных
     let autoFullscreenDone = false;
     function autoFullscreen() {
-      if (!autoFullscreenDone && window.innerWidth < 768 && !isPWAStandalone()) {
+      if (!autoFullscreenDone && window.innerWidth < 768) {
         autoFullscreenDone = true;
         setTimeout(() => {
           enterFullscreen();
         }, 1000);
       }
-    }
-
-    // Для PWA режима всегда показываем в полноэкранном режиме
-    if (isPWAStandalone()) {
-      gameWrapper.classList.add('fullscreen-active');
-      document.body.style.backgroundColor = '#05050e';
     }
 
     // ============ Обработчики ввода ============
@@ -1402,9 +1249,7 @@
       return data;
     }
 
-    // ============ Классы игровых объектов (остаются без изменений) ============
-    // ... (весь код классов Player, InfectedZombie, Boss остается без изменений)
-
+    // ============ Классы игровых объектов ============
     class Player {
       constructor(x, y) {
         this.x = x; this.y = y; this.w = 20; this.h = 30;
@@ -1798,7 +1643,7 @@
       }
     }
 
-    // ============ Игровые функции (остаются без изменений) ============
+    // ============ Игровые функции ============
     function restartGame() {
       STATE.collectedPages = new Set();
       STATE.foundPages = 0;
@@ -1970,7 +1815,7 @@
       STATE.messageTimer = 0; 
     }
 
-    // ============ Отрисовка (остается без изменений) ============
+    // ============ Отрисовка ============
     function getFloorColors(floor) {
       if (floor <= 2) return { bg1: '#0a0a14', bg2: '#0e121c', bg3: '#121a22', win1: '#111a22', win2: 'rgba(40,60,90,0.15)' };
       if (floor <= 4) return { bg1: '#0f0a14', bg2: '#120e1a', bg3: '#150f1c', win1: '#1a1122', win2: 'rgba(60,30,90,0.2)' };
@@ -2118,7 +1963,7 @@
       ctx.restore();
     }
 
-    // ============ Игровой цикл (остается без изменений) ============
+    // ============ Игровой цикл ============
     function update(dt) {
       if (!STATE.gameStarted) return;
       STATE.laserGlobalTimer += dt;
@@ -2246,26 +2091,11 @@
       resizeCanvas();
       STATE.lastTime = performance.now();
       requestAnimationFrame(gameLoop);
-      
-      // Регистрируем обработчик beforeinstallprompt для PWA
-      window.addEventListener('beforeinstallprompt', (e) => {
-        // Предотвращаем автоматический показ диалога
-        e.preventDefault();
-        // Сохраняем событие для последующего использования
-        window.deferredPrompt = e;
-        console.log('PWA установка доступна');
-      });
-      
-      // Отслеживаем установку PWA
-      window.addEventListener('appinstalled', () => {
-        console.log('PWA приложение установлено');
-        window.deferredPrompt = null;
-      });
     }
 
     setupInputHandlers();
     init();
-    console.log('⛓ "Карантин" — PWA с полноэкранным режимом! Поддерживает все устройства!');
+    console.log('⛓ "Карантин" — Полноэкранный режим для всех устройств! F, кнопка или двойное касание!');
   })();
 </script>
 </body>
