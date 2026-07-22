@@ -57,6 +57,7 @@
       background: #050510;
       overflow: hidden;
     }
+    /* Полноэкранный режим на десктопе */
     #game-wrapper.fullscreen-active {
       width: 100vw;
       height: 100vh;
@@ -332,6 +333,7 @@
       z-index: 100;
     }
 
+    /* Адаптация для мобильных устройств — игра всегда полностью видна */
     @media (max-width: 768px) {
       #game-wrapper {
         width: 100vw;
@@ -371,6 +373,7 @@
       .boss-icon { font-size: 12px; }
     }
 
+    /* Вертикальная ориентация — игра остаётся полностью в экране */
     @media (orientation: portrait) {
       #game-wrapper:not(.fullscreen-active) {
         width: 100vw;
@@ -509,40 +512,23 @@
     function enterFullscreen() {
       const el = gameWrapper;
       
-      // Стандартный Fullscreen API
       if (el.requestFullscreen) {
-        el.requestFullscreen().catch(err => {
-          console.log('Fullscreen request failed, trying alternatives...');
-          // Альтернативные методы
-          if (el.webkitRequestFullscreen) {
-            el.webkitRequestFullscreen();
-          } else if (el.webkitEnterFullscreen) {
-            el.webkitEnterFullscreen(); // Для iOS
-          } else if (el.mozRequestFullScreen) {
-            el.mozRequestFullScreen();
-          } else if (el.msRequestFullscreen) {
-            el.msRequestFullscreen();
-          }
+        el.requestFullscreen().catch(() => {
+          if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+          else if (el.webkitEnterFullscreen) el.webkitEnterFullscreen();
+          else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+          else if (el.msRequestFullscreen) el.msRequestFullscreen();
         });
-      } 
-      // Webkit (Safari, старые версии Chrome)
-      else if (el.webkitRequestFullscreen) {
+      } else if (el.webkitRequestFullscreen) {
         el.webkitRequestFullscreen();
-      }
-      // Webkit Enter Fullscreen (iOS Safari)
-      else if (el.webkitEnterFullscreen) {
+      } else if (el.webkitEnterFullscreen) {
         el.webkitEnterFullscreen();
-      }
-      // Mozilla
-      else if (el.mozRequestFullScreen) {
+      } else if (el.mozRequestFullScreen) {
         el.mozRequestFullScreen();
-      }
-      // IE/Edge
-      else if (el.msRequestFullscreen) {
+      } else if (el.msRequestFullscreen) {
         el.msRequestFullscreen();
       }
       
-      // Добавляем класс для стилизации
       gameWrapper.classList.add('fullscreen-active');
     }
 
@@ -575,7 +561,6 @@
       }
     }
 
-    // Обработчик изменения состояния полноэкранного режима
     function onFullscreenChange() {
       if (!isFullscreen()) {
         gameWrapper.classList.remove('fullscreen-active');
@@ -595,10 +580,8 @@
       const currentTime = new Date().getTime();
       const tapLength = currentTime - lastTapTime;
       
-      // Проверяем, что касание не на кнопке
       if (e.target === canvas || e.target === gameWrapper) {
         if (tapLength < 300 && tapLength > 0) {
-          // Двойное касание
           toggleFullscreen(e);
         }
       }
@@ -607,32 +590,26 @@
 
     // ============ Обработчики ввода ============
     function setupInputHandlers() {
-      // Клавиатура
       window.addEventListener('keydown', (e) => {
         INPUT.keys[e.code] = true;
         
-        // F11 или F для полноэкранного режима
         if (e.code === 'KeyF' && !e.ctrlKey && !e.metaKey) {
           toggleFullscreen(e);
         }
         
-        // R для возрождения
         if (e.code === 'KeyR' && (STATE.gameOver || STATE.victory)) {
           respawnPlayer();
         }
         
-        // E для взаимодействия
         if (e.code === 'KeyE' && STATE.interactCooldown <= 0 && STATE.player && STATE.player.health > 0 && STATE.nearInteractable) {
           INPUT.interact = true;
           setTimeout(() => { INPUT.interact = false; }, 100);
         }
         
-        // J для атаки
         if (e.code === 'KeyJ') {
           INPUT.attack = true;
         }
         
-        // Предотвращаем скролл
         if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) {
           e.preventDefault();
         }
@@ -644,7 +621,6 @@
         if (e.code === 'KeyE') INPUT.interact = false;
       });
 
-      // Мышь на canvas
       canvas.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -673,7 +649,6 @@
         e.stopPropagation();
       });
 
-      // Сенсорный экран на canvas
       canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -699,12 +674,10 @@
         INPUT.attack = false;
       }, {passive: false});
 
-      // Универсальная функция для настройки кнопок
       function setupButton(id, inputProp, isToggle = false) {
         const btn = document.getElementById(id);
         if (!btn) return;
         
-        // Touch события
         btn.addEventListener('touchstart', (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -723,7 +696,6 @@
           if (!isToggle) INPUT[inputProp] = false;
         }, {passive: false});
         
-        // Mouse события
         btn.addEventListener('mousedown', (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -741,7 +713,6 @@
           if (!isToggle) INPUT[inputProp] = false;
         });
 
-        // Предотвращаем дефолтный click
         btn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -751,18 +722,15 @@
         });
       }
 
-      // Настройка всех игровых кнопок
       setupButton('touch-left', 'left');
       setupButton('touch-right', 'right');
       setupButton('touch-jump', 'jump');
       setupButton('touch-attack', 'attack');
-      setupButton('touch-interact', 'interact', true); // toggle для взаимодействия
+      setupButton('touch-interact', 'interact', true);
 
-      // Кнопка полного экрана
       fullscreenBtn.addEventListener('click', toggleFullscreen);
       fullscreenBtn.addEventListener('touchend', toggleFullscreen);
 
-      // Кнопка старта
       function handleStart(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -1802,7 +1770,7 @@
 
     setupInputHandlers();
     init();
-    console.log('⛓ "Карантин" — Полноэкранный режим для всех устройств! F11, F, кнопка или двойное касание!');
+    console.log('⛓ "Карантин" — Игра полностью в экране на всех устройствах!');
   })();
 </script>
 </body>
