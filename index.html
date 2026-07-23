@@ -12,8 +12,36 @@
   <meta name="theme-color" content="#05050e">
   <meta name="description" content="Вирус искажает реальность. Вы слышите голоса. За вами охотятся заражённые.">
   
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="data:application/manifest+json,{
+    %22name%22: %22Карантин. Больница.%22,
+    %22short_name%22: %22Карантин%22,
+    %22description%22: %22Вирус искажает реальность. Вы слышите голоса. За вами охотятся заражённые.%22,
+    %22start_url%22: %22.%22,
+    %22display%22: %22fullscreen%22,
+    %22orientation%22: %22any%22,
+    %22background_color%22: %22%2305050e%22,
+    %22theme_color%22: %22%2305050e%22,
+    %22categories%22: [%22games%22, %22entertainment%22],
+    %22icons%22: [
+      {
+        %22src%22: %22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%2305050e'/%3E%3Ctext y='.9em' font-size='90' text-anchor='middle' x='50'%3E⛓%3C/text%3E%3C/svg%3E%22,
+        %22sizes%22: %22100x100%22,
+        %22type%22: %22image/svg+xml%22,
+        %22purpose%22: %22any%22
+      },
+      {
+        %22src%22: %22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%2305050e'/%3E%3Ctext y='.9em' font-size='460' text-anchor='middle' x='256' fill='%23ff4466'%3E⛓%3C/text%3E%3C/svg%3E%22,
+        %22sizes%22: %22512x512%22,
+        %22type%22: %22image/svg+xml%22,
+        %22purpose%22: %22any%20maskable%22
+      }
+    ]
+  }">
+  
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛓</text></svg>">
   
+  <!-- Остальные стили без изменений -->
   <style>
     :root {
       --bg: #05050e;
@@ -450,6 +478,29 @@
       z-index: 100;
     }
 
+    /* PWA Install Button */
+    #pwa-install-btn {
+      background: rgba(10, 40, 30, 0.9);
+      border: 1px solid #44ff66;
+      color: #c0d0e0;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 2px;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      pointer-events: auto;
+      -webkit-appearance: none;
+      appearance: none;
+      outline: none;
+      z-index: 100;
+      display: none;
+      margin-left: 4px;
+    }
+    
+    #pwa-install-btn.visible {
+      display: inline-block;
+    }
+
     /* Мобильные стили */
     @media (max-width: 768px) {
       #game-wrapper {
@@ -633,6 +684,25 @@
         min-height: -webkit-fill-available;
       }
     }
+
+    /* PWA оффлайн-режим */
+    .offline-indicator {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #ff4466;
+      color: white;
+      text-align: center;
+      padding: 4px;
+      font-size: 12px;
+      z-index: 9999;
+      display: none;
+    }
+    
+    .offline-indicator.visible {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -657,6 +727,7 @@
         <span class="status-text" id="floorText">КАРАНТИН</span>
       </div>
       <div class="status-bar">
+        <button id="pwa-install-btn" title="Установить приложение">📱</button>
         <button id="fullscreen-btn" title="Полный экран">⛶</button>
       </div>
     </div>
@@ -687,18 +758,148 @@
 <script>
   (function() {
     // ============ PWA Service Worker ============
+    let deferredPrompt;
+    const installBtn = document.getElementById('pwa-install-btn');
+    
+    // Регистрация Service Worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         const swCode = `
-          self.addEventListener('install', (e) => { self.skipWaiting(); });
-          self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
-          self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
+          const CACHE_NAME = 'quarantine-game-v1';
+          const urlsToCache = [
+            '/',
+            'index.html'
+          ];
+          
+          self.addEventListener('install', (event) => {
+            event.waitUntil(
+              caches.open(CACHE_NAME)
+                .then((cache) => {
+                  console.log('Opened cache');
+                  return cache.addAll(urlsToCache);
+                })
+                .then(() => self.skipWaiting())
+            );
+          });
+          
+          self.addEventListener('activate', (event) => {
+            event.waitUntil(
+              caches.keys().then((cacheNames) => {
+                return Promise.all(
+                  cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                      return caches.delete(cacheName);
+                    }
+                  })
+                );
+              }).then(() => self.clients.claim())
+            );
+          });
+          
+          self.addEventListener('fetch', (event) => {
+            event.respondWith(
+              caches.match(event.request)
+                .then((response) => {
+                  if (response) {
+                    return response;
+                  }
+                  return fetch(event.request).then(
+                    (response) => {
+                      if(!response || response.status !== 200 || response.type !== 'basic') {
+                        return response;
+                      }
+                      const responseToCache = response.clone();
+                      caches.open(CACHE_NAME)
+                        .then((cache) => {
+                          cache.put(event.request, responseToCache);
+                        });
+                      return response;
+                    }
+                  );
+                })
+            );
+          });
+          
+          self.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'SKIP_WAITING') {
+              self.skipWaiting();
+            }
+          });
         `;
+        
         const blob = new Blob([swCode], { type: 'application/javascript' });
         const swUrl = URL.createObjectURL(blob);
-        navigator.serviceWorker.register(swUrl).catch(() => {});
+        
+        navigator.serviceWorker.register(swUrl)
+          .then((registration) => {
+            console.log('ServiceWorker registration successful');
+            
+            // Проверяем обновления
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('New content is available; please refresh.');
+                  if (confirm('Доступна новая версия игры. Обновить?')) {
+                    window.location.reload();
+                  }
+                }
+              });
+            });
+          })
+          .catch((err) => {
+            console.log('ServiceWorker registration failed: ', err);
+          });
       });
     }
+    
+    // Обработка установки PWA
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.classList.add('visible');
+      
+      installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log(`User response: ${outcome}`);
+          deferredPrompt = null;
+          installBtn.classList.remove('visible');
+        }
+      });
+    });
+    
+    // Отслеживание установки
+    window.addEventListener('appinstalled', () => {
+      console.log('PWA was installed');
+      deferredPrompt = null;
+      installBtn.classList.remove('visible');
+    });
+    
+    // Отслеживание оффлайн статуса
+    function updateOnlineStatus() {
+      const offlineIndicator = document.createElement('div');
+      offlineIndicator.className = 'offline-indicator';
+      document.body.appendChild(offlineIndicator);
+      
+      if (!navigator.onLine) {
+        offlineIndicator.textContent = '📴 Вы оффлайн - игра работает в автономном режиме';
+        offlineIndicator.classList.add('visible');
+        setTimeout(() => {
+          offlineIndicator.classList.remove('visible');
+        }, 3000);
+      }
+    }
+    
+    window.addEventListener('online', () => {
+      console.log('App is online');
+      // Можно добавить уведомление о восстановлении соединения
+    });
+    
+    window.addEventListener('offline', () => {
+      updateOnlineStatus();
+    });
 
     // ============ DOM элементы ============
     const canvas = document.getElementById('gameCanvas');
@@ -2095,7 +2296,7 @@
 
     setupInputHandlers();
     init();
-    console.log('⛓ "Карантин" — Полноэкранный режим для всех устройств! F, кнопка или двойное касание!');
+    console.log('⛓ "Карантин" — PWA версия! Можно установить на устройство!');
   })();
 </script>
 </body>
